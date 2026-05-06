@@ -10,14 +10,15 @@ export function registerListTasksTool({ server, client }: ToolDeps): void {
       title: "List Tasks",
       description: "List generation task history with optional type filter",
       inputSchema: listTasksInputSchema,
-      annotations: { readOnlyHint: true }
+      annotations: { readOnlyHint: true },
     },
-    async (args) => client.listTasks(
-      { token: args.token },
-      {
-        type: args.type,
-        count: args.count
-      }
-    )
+    async (args) =>
+      client.listTasks(
+        { token: args.token },
+        {
+          type: args.type,
+          count: args.count,
+        },
+      ),
   );
 }

@@ -6,7 +6,11 @@ import minimist from "minimist";
 
 import { isManualOnlyModel } from "@/api/constants/common.ts";
 import { buildRegionInfo, type RegionCode } from "@/api/services/core.ts";
-import { generateImageComposition, generateImages, upscaleImage } from "@/api/services/images.ts";
+import {
+  generateImageComposition,
+  generateImages,
+  upscaleImage,
+} from "@/api/services/images.ts";
 import { generateVideo } from "@/api/services/videos.ts";
 import {
   VIDEO_OMNI_IMAGE_SLOT_KEYS,
@@ -15,7 +19,7 @@ import {
   collectVideoInputPlan,
   parseVideoCliMode,
   validateVideoModeAndModel,
-  type VideoCliMode
+  type VideoCliMode,
 } from "@/cli/commands/video-input.ts";
 
 type JsonRecord = Record<string, unknown>;
@@ -25,7 +29,10 @@ type MediaDeps = {
   usageImageEdit: () => string;
   usageImageUpscale: () => string;
   usageVideoGenerate: () => string;
-  getSingleString: (args: Record<string, unknown>, key: string) => string | undefined;
+  getSingleString: (
+    args: Record<string, unknown>,
+    key: string,
+  ) => string | undefined;
   getRegionWithDefault: (args: Record<string, unknown>) => string;
   toStringList: (raw: unknown) => string[];
   fail: (message: string) => never;
@@ -35,14 +42,18 @@ type MediaDeps = {
     region: string | undefined,
     requestedModel: string,
     taskType: "image" | "video",
-    requiredCapabilityTags?: string[]
+    requiredCapabilityTags?: string[],
   ) => Promise<{ token: string; region: RegionCode }>;
   printCommandJson: (command: string, data: unknown, meta?: JsonRecord) => void;
   printDownloadSummary: (kind: "image" | "video", files: string[]) => void;
   printTaskInfo: (task: unknown) => void;
 };
 
-function ensurePrompt(prompt: string | undefined, usage: string, deps: Pick<MediaDeps, "fail">): string {
+function ensurePrompt(
+  prompt: string | undefined,
+  usage: string,
+  deps: Pick<MediaDeps, "fail">,
+): string {
   if (!prompt) {
     deps.fail(`Missing required --prompt.\n\n${usage}`);
   }
@@ -95,16 +106,19 @@ function detectImageExtensionFromBuffer(buffer: Buffer): string | null {
       buffer[5] === 0x0a &&
       buffer[6] === 0x1a &&
       buffer[7] === 0x0a
-    ) return "png";
+    )
+      return "png";
   }
   if (buffer.length >= 3) {
-    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "jpg";
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff)
+      return "jpg";
   }
   if (buffer.length >= 12) {
     if (
       buffer.toString("ascii", 0, 4) === "RIFF" &&
       buffer.toString("ascii", 8, 12) === "WEBP"
-    ) return "webp";
+    )
+      return "webp";
   }
   if (buffer.length >= 6) {
     const sig = buffer.toString("ascii", 0, 6);
@@ -113,7 +127,10 @@ function detectImageExtensionFromBuffer(buffer: Buffer): string | null {
   return null;
 }
 
-function detectVideoExtension(contentType: string | null, fileUrl: string): string {
+function detectVideoExtension(
+  contentType: string | null,
+  fileUrl: string,
+): string {
   if (contentType?.includes("video/mp4")) return "mp4";
   if (contentType?.includes("video/webm")) return "webm";
   const pathname = new URL(fileUrl).pathname.toLowerCase();
@@ -126,7 +143,7 @@ function detectVideoExtension(contentType: string | null, fileUrl: string): stri
 function parsePositiveNumberOption(
   args: Record<string, unknown>,
   key: "wait-timeout-seconds" | "poll-interval-ms",
-  deps: Pick<MediaDeps, "getSingleString" | "fail">
+  deps: Pick<MediaDeps, "getSingleString" | "fail">,
 ): number | undefined {
   const raw = deps.getSingleString(args, key);
   if (!raw) return undefined;
@@ -141,18 +158,30 @@ function applyWaitOptionsToBody(
   body: JsonRecord,
   args: Record<string, unknown>,
   deps: Pick<MediaDeps, "getSingleString" | "fail">,
-  includeWaitFlag = true
+  includeWaitFlag = true,
 ): boolean {
   const wait = Boolean(args.wait);
   if (includeWaitFlag) body.wait = wait;
-  const waitTimeoutSeconds = parsePositiveNumberOption(args, "wait-timeout-seconds", deps);
-  if (waitTimeoutSeconds !== undefined) body.wait_timeout_seconds = waitTimeoutSeconds;
-  const pollIntervalMs = parsePositiveNumberOption(args, "poll-interval-ms", deps);
+  const waitTimeoutSeconds = parsePositiveNumberOption(
+    args,
+    "wait-timeout-seconds",
+    deps,
+  );
+  if (waitTimeoutSeconds !== undefined)
+    body.wait_timeout_seconds = waitTimeoutSeconds;
+  const pollIntervalMs = parsePositiveNumberOption(
+    args,
+    "poll-interval-ms",
+    deps,
+  );
   if (pollIntervalMs !== undefined) body.poll_interval_ms = pollIntervalMs;
   return wait;
 }
 
-async function downloadBinary(url: string, deps: Pick<MediaDeps, "fail">): Promise<{ buffer: Buffer; contentType: string | null }> {
+async function downloadBinary(
+  url: string,
+  deps: Pick<MediaDeps, "fail">,
+): Promise<{ buffer: Buffer; contentType: string | null }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
   let response: Response;
@@ -160,7 +189,7 @@ async function downloadBinary(url: string, deps: Pick<MediaDeps, "fail">): Promi
     response = await fetch(url, { signal: controller.signal });
   } catch (err: any) {
     clearTimeout(timeout);
-    if (err.name === 'AbortError') {
+    if (err.name === "AbortError") {
       deps.fail(`Download timed out after 120s: ${url}`);
     }
     throw err;
@@ -179,7 +208,7 @@ async function downloadImages(
   urls: string[],
   outputDir: string,
   prefix: string,
-  deps: Pick<MediaDeps, "fail">
+  deps: Pick<MediaDeps, "fail">,
 ): Promise<string[]> {
   const dir = path.resolve(outputDir);
   await mkdir(dir, { recursive: true });
@@ -235,8 +264,13 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
 
     const token = deps.getSingleString(args, "token");
     const region = deps.getRegionWithDefault(args);
-    const prompt = ensurePrompt(deps.getSingleString(args, "prompt"), deps.usageImageGenerate(), deps);
-    const outputDir = deps.getSingleString(args, "output-dir") || "./pic/cli-image-generate";
+    const prompt = ensurePrompt(
+      deps.getSingleString(args, "prompt"),
+      deps.usageImageGenerate(),
+      deps,
+    );
+    const outputDir =
+      deps.getSingleString(args, "output-dir") || "./pic/cli-image-generate";
 
     const body: JsonRecord = {
       prompt,
@@ -258,7 +292,9 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
         deps.fail(`Invalid --sample-strength: ${sampleStrengthRaw}`);
       }
       if (parsed < 0 || parsed > 1) {
-        deps.fail(`Invalid --sample-strength: ${sampleStrengthRaw} (must be between 0 and 1)`);
+        deps.fail(
+          `Invalid --sample-strength: ${sampleStrengthRaw} (must be between 0 and 1)`,
+        );
       }
       body.sample_strength = parsed;
     }
@@ -267,7 +303,7 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
       token,
       region,
       String(body.model || "jimeng-4.5"),
-      "image"
+      "image",
     );
     const result = await generateImages(
       String(body.model || "jimeng-4.5"),
@@ -275,15 +311,27 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
       {
         ratio: String(body.ratio || "1:1"),
         resolution: String(body.resolution || "2k"),
-        sampleStrength: typeof body.sample_strength === "number" ? body.sample_strength : undefined,
-        negativePrompt: typeof body.negative_prompt === "string" ? body.negative_prompt : undefined,
+        sampleStrength:
+          typeof body.sample_strength === "number"
+            ? body.sample_strength
+            : undefined,
+        negativePrompt:
+          typeof body.negative_prompt === "string"
+            ? body.negative_prompt
+            : undefined,
         intelligentRatio: Boolean(body.intelligent_ratio),
         wait,
-        waitTimeoutSeconds: typeof body.wait_timeout_seconds === "number" ? body.wait_timeout_seconds : undefined,
-        pollIntervalMs: typeof body.poll_interval_ms === "number" ? body.poll_interval_ms : undefined,
+        waitTimeoutSeconds:
+          typeof body.wait_timeout_seconds === "number"
+            ? body.wait_timeout_seconds
+            : undefined,
+        pollIntervalMs:
+          typeof body.poll_interval_ms === "number"
+            ? body.poll_interval_ms
+            : undefined,
       },
       pick.token,
-      buildRegionInfo(pick.region)
+      buildRegionInfo(pick.region),
     );
     if (!Array.isArray(result)) {
       if (isJson) deps.printCommandJson("image.generate", result, { wait });
@@ -293,12 +341,17 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     const urls: string[] = result;
     if (urls.length === 0) deps.fail("No image URL found in response.");
 
-    const savedFiles = await downloadImages(urls, outputDir, "jimeng-image-generate", deps);
+    const savedFiles = await downloadImages(
+      urls,
+      outputDir,
+      "jimeng-image-generate",
+      deps,
+    );
     if (isJson) {
       deps.printCommandJson(
         "image.generate",
         { data: urls.map((url) => ({ url })), files: savedFiles },
-        { wait }
+        { wait },
       );
     } else {
       deps.printDownloadSummary("image", savedFiles);
@@ -332,12 +385,19 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
 
     const token = deps.getSingleString(args, "token");
     const region = deps.getRegionWithDefault(args);
-    const prompt = ensurePrompt(deps.getSingleString(args, "prompt"), deps.usageImageEdit(), deps);
+    const prompt = ensurePrompt(
+      deps.getSingleString(args, "prompt"),
+      deps.usageImageEdit(),
+      deps,
+    );
     const sources = deps.toStringList(args.image);
-    if (sources.length === 0) deps.failWithUsage("Missing required --image.", deps.usageImageEdit());
-    if (sources.length > 10) deps.fail("At most 10 images are supported for image edit.");
+    if (sources.length === 0)
+      deps.failWithUsage("Missing required --image.", deps.usageImageEdit());
+    if (sources.length > 10)
+      deps.fail("At most 10 images are supported for image edit.");
 
-    const outputDir = deps.getSingleString(args, "output-dir") || "./pic/cli-image-edit";
+    const outputDir =
+      deps.getSingleString(args, "output-dir") || "./pic/cli-image-edit";
     const model = deps.getSingleString(args, "model") || "jimeng-4.5";
     const ratio = deps.getSingleString(args, "ratio") || "1:1";
     const resolution = deps.getSingleString(args, "resolution") || "2k";
@@ -350,21 +410,31 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     const allUrls = sources.every(isHttpUrl);
     const allLocal = sources.every((item) => !isHttpUrl(item));
     if (!allUrls && !allLocal) {
-      deps.fail("Mixed image sources are not supported. Use all URLs or all local files.");
+      deps.fail(
+        "Mixed image sources are not supported. Use all URLs or all local files.",
+      );
     }
 
-    const pick = await deps.pickDirectTokenForGeneration(token, region, model, "image");
+    const pick = await deps.pickDirectTokenForGeneration(
+      token,
+      region,
+      model,
+      "image",
+    );
     const images: Array<string | Buffer> = [];
     if (allUrls) {
       images.push(...sources);
     } else {
       for (const source of sources) {
         const imagePath = path.resolve(source);
-        if (!(await pathExists(imagePath))) deps.fail(`Image file not found: ${imagePath}`);
+        if (!(await pathExists(imagePath)))
+          deps.fail(`Image file not found: ${imagePath}`);
         images.push(await readFile(imagePath));
       }
     }
-    const sampleStrength = sampleStrengthRaw ? Number(sampleStrengthRaw) : undefined;
+    const sampleStrength = sampleStrengthRaw
+      ? Number(sampleStrengthRaw)
+      : undefined;
     if (sampleStrengthRaw && !Number.isFinite(sampleStrength)) {
       deps.fail(`Invalid --sample-strength: ${sampleStrengthRaw}`);
     }
@@ -380,11 +450,19 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
         negativePrompt,
         intelligentRatio,
         wait,
-        waitTimeoutSeconds: parsePositiveNumberOption(args, "wait-timeout-seconds", deps),
-        pollIntervalMs: parsePositiveNumberOption(args, "poll-interval-ms", deps),
+        waitTimeoutSeconds: parsePositiveNumberOption(
+          args,
+          "wait-timeout-seconds",
+          deps,
+        ),
+        pollIntervalMs: parsePositiveNumberOption(
+          args,
+          "poll-interval-ms",
+          deps,
+        ),
       },
       pick.token,
-      buildRegionInfo(pick.region)
+      buildRegionInfo(pick.region),
     );
     if (!Array.isArray(result)) {
       if (isJson) deps.printCommandJson("image.edit", result, { wait });
@@ -394,12 +472,17 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     const urls: string[] = result;
     if (urls.length === 0) deps.fail("No image URL found in response.");
 
-    const savedFiles = await downloadImages(urls, outputDir, "jimeng-image-edit", deps);
+    const savedFiles = await downloadImages(
+      urls,
+      outputDir,
+      "jimeng-image-edit",
+      deps,
+    );
     if (isJson) {
       deps.printCommandJson(
         "image.edit",
         { data: urls.map((url) => ({ url })), files: savedFiles },
-        { wait }
+        { wait },
       );
     } else {
       deps.printDownloadSummary("image", savedFiles);
@@ -437,7 +520,11 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
 
     const token = deps.getSingleString(args, "token");
     const region = deps.getRegionWithDefault(args);
-    const prompt = ensurePrompt(deps.getSingleString(args, "prompt"), usage, deps);
+    const prompt = ensurePrompt(
+      deps.getSingleString(args, "prompt"),
+      usage,
+      deps,
+    );
     const cliMode = parseVideoCliMode(args, usage, {
       getSingleString: deps.getSingleString,
       toStringList: deps.toStringList,
@@ -449,32 +536,56 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
       failWithUsage: deps.failWithUsage,
     });
 
-    const outputDir = deps.getSingleString(args, "output-dir") || "./pic/cli-video-generate";
-    const model = deps.getSingleString(args, "model")
-      || (cliMode === "omni_reference" ? "jimeng-video-seedance-2.0-fast" : "jimeng-video-3.0");
+    const outputDir =
+      deps.getSingleString(args, "output-dir") || "./pic/cli-video-generate";
+    const model =
+      deps.getSingleString(args, "model") ||
+      (cliMode === "omni_reference"
+        ? "jimeng-video-seedance-2.0-fast"
+        : "jimeng-video-3.0");
     if (isManualOnlyModel(model, region as RegionCode)) {
       console.log(
-        `[warn] ${model} is a manual model for region ${region}. It is mapped locally but may not appear in upstream model discovery, and generation can still fail if the token lacks the required entitlement.`
+        `[warn] ${model} is a manual model for region ${region}. It is mapped locally but may not appear in upstream model discovery, and generation can still fail if the token lacks the required entitlement.`,
       );
     }
-    validateVideoModeAndModel(cliMode, model, inputPlan, usage, { failWithUsage: deps.failWithUsage });
-    const functionMode = cliMode === "omni_reference" ? "omni_reference" : "first_last_frames";
+    validateVideoModeAndModel(cliMode, model, inputPlan, usage, {
+      failWithUsage: deps.failWithUsage,
+    });
+    const functionMode =
+      cliMode === "omni_reference" ? "omni_reference" : "first_last_frames";
     const ratio = deps.getSingleString(args, "ratio") || "1:1";
     const resolution = deps.getSingleString(args, "resolution") || "720p";
     const durationRaw = deps.getSingleString(args, "duration") || "5";
     const duration = Number(durationRaw);
-    if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(duration)) {
-      deps.fail(`Invalid --duration: ${durationRaw}. Use a positive integer (seconds).`);
+    if (
+      !Number.isFinite(duration) ||
+      duration <= 0 ||
+      !Number.isInteger(duration)
+    ) {
+      deps.fail(
+        `Invalid --duration: ${durationRaw}. Use a positive integer (seconds).`,
+      );
     }
     const wait = Boolean(args.wait);
     const isJson = Boolean(args.json);
-    const requiredCapabilityTags = cliMode === "omni_reference" ? ["omni_reference"] : [];
-    const pick = await deps.pickDirectTokenForGeneration(token, region, model, "video", requiredCapabilityTags);
-    const directInputs = await buildDirectVideoInputPayload(cliMode, inputPlan, {
-      isHttpUrl,
-      pathExists,
-      fail: deps.fail,
-    });
+    const requiredCapabilityTags =
+      cliMode === "omni_reference" ? ["omni_reference"] : [];
+    const pick = await deps.pickDirectTokenForGeneration(
+      token,
+      region,
+      model,
+      "video",
+      requiredCapabilityTags,
+    );
+    const directInputs = await buildDirectVideoInputPayload(
+      cliMode,
+      inputPlan,
+      {
+        isHttpUrl,
+        pathExists,
+        fail: deps.fail,
+      },
+    );
 
     const result = await generateVideo(
       model,
@@ -488,15 +599,27 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
         httpRequest: directInputs.httpRequest,
         functionMode,
         wait,
-        waitTimeoutSeconds: parsePositiveNumberOption(args, "wait-timeout-seconds", deps),
-        pollIntervalMs: parsePositiveNumberOption(args, "poll-interval-ms", deps),
+        waitTimeoutSeconds: parsePositiveNumberOption(
+          args,
+          "wait-timeout-seconds",
+          deps,
+        ),
+        pollIntervalMs: parsePositiveNumberOption(
+          args,
+          "poll-interval-ms",
+          deps,
+        ),
       },
       pick.token,
-      buildRegionInfo(pick.region)
+      buildRegionInfo(pick.region),
     );
 
     if (typeof result !== "string") {
-      if (isJson) deps.printCommandJson("video.generate", result, { wait, mode: cliMode });
+      if (isJson)
+        deps.printCommandJson("video.generate", result, {
+          wait,
+          mode: cliMode,
+        });
       else deps.printTaskInfo(result);
       return;
     }
@@ -507,14 +630,17 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     await mkdir(dir, { recursive: true });
     const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
     const ext = detectVideoExtension(contentType, videoUrl);
-    const filePath = path.join(dir, `jimeng-video-generate-${timestamp}.${ext}`);
+    const filePath = path.join(
+      dir,
+      `jimeng-video-generate-${timestamp}.${ext}`,
+    );
     await writeFile(filePath, buffer);
 
     if (isJson) {
       deps.printCommandJson(
         "video.generate",
         { data: [{ url: videoUrl }], files: [filePath] },
-        { wait, mode: cliMode }
+        { wait, mode: cliMode },
       );
     } else {
       deps.printDownloadSummary("video", [filePath]);
@@ -545,22 +671,30 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     const token = deps.getSingleString(args, "token");
     const region = deps.getRegionWithDefault(args);
     const imageSource = deps.getSingleString(args, "image");
-    if (!imageSource) deps.failWithUsage("Missing required --image.", deps.usageImageUpscale());
+    if (!imageSource)
+      deps.failWithUsage("Missing required --image.", deps.usageImageUpscale());
 
-    const outputDir = deps.getSingleString(args, "output-dir") || "./pic/cli-image-upscale";
+    const outputDir =
+      deps.getSingleString(args, "output-dir") || "./pic/cli-image-upscale";
     const model = deps.getSingleString(args, "model") || "jimeng-5.0";
     const resolution = deps.getSingleString(args, "resolution") || "4k";
     const wait = Boolean(args.wait);
     const isJson = Boolean(args.json);
 
-    const pick = await deps.pickDirectTokenForGeneration(token, region, model, "image");
+    const pick = await deps.pickDirectTokenForGeneration(
+      token,
+      region,
+      model,
+      "image",
+    );
 
     let image: string | Buffer;
     if (isHttpUrl(imageSource)) {
       image = imageSource;
     } else {
       const imagePath = path.resolve(imageSource);
-      if (!(await pathExists(imagePath))) deps.fail(`Image file not found: ${imagePath}`);
+      if (!(await pathExists(imagePath)))
+        deps.fail(`Image file not found: ${imagePath}`);
       image = await readFile(imagePath);
     }
 
@@ -570,11 +704,19 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
       {
         resolution,
         wait,
-        waitTimeoutSeconds: parsePositiveNumberOption(args, "wait-timeout-seconds", deps),
-        pollIntervalMs: parsePositiveNumberOption(args, "poll-interval-ms", deps),
+        waitTimeoutSeconds: parsePositiveNumberOption(
+          args,
+          "wait-timeout-seconds",
+          deps,
+        ),
+        pollIntervalMs: parsePositiveNumberOption(
+          args,
+          "poll-interval-ms",
+          deps,
+        ),
       },
       pick.token,
-      buildRegionInfo(pick.region)
+      buildRegionInfo(pick.region),
     );
 
     if (!Array.isArray(result)) {
@@ -585,12 +727,17 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     const urls: string[] = result;
     if (urls.length === 0) deps.fail("No image URL found in response.");
 
-    const savedFiles = await downloadImages(urls, outputDir, "jimeng-image-upscale", deps);
+    const savedFiles = await downloadImages(
+      urls,
+      outputDir,
+      "jimeng-image-upscale",
+      deps,
+    );
     if (isJson) {
       deps.printCommandJson(
         "image.upscale",
         { data: urls.map((url) => ({ url })), files: savedFiles },
-        { wait, resolution }
+        { wait, resolution },
       );
     } else {
       deps.printDownloadSummary("image", savedFiles);

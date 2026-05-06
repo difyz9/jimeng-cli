@@ -1,4 +1,7 @@
-function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
+function parseBoolean(
+  value: string | undefined,
+  defaultValue: boolean,
+): boolean {
   if (value == null) return defaultValue;
   const normalized = value.trim().toLowerCase();
   if (["1", "true", "yes", "on"].includes(normalized)) return true;
@@ -24,7 +27,10 @@ export function loadMcpConfig(): McpConfig {
   return {
     apiToken: apiToken || undefined,
     httpTimeoutMs: parseNumber(process.env.MCP_HTTP_TIMEOUT_MS, 120000),
-    enableAdvancedTools: parseBoolean(process.env.MCP_ENABLE_ADVANCED_TOOLS, true),
-    requireRunConfirm: parseBoolean(process.env.MCP_REQUIRE_RUN_CONFIRM, true)
+    enableAdvancedTools: parseBoolean(
+      process.env.MCP_ENABLE_ADVANCED_TOOLS,
+      true,
+    ),
+    requireRunConfirm: parseBoolean(process.env.MCP_REQUIRE_RUN_CONFIRM, true),
   };
 }

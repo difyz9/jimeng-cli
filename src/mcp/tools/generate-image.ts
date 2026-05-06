@@ -3,14 +3,18 @@ import { generateImageInputSchema } from "../schemas.ts";
 import type { ToolDeps } from "../types.ts";
 import { registerSafeTool } from "../tool-factory.ts";
 
-export function registerGenerateImageTool({ server, config, client }: ToolDeps): void {
+export function registerGenerateImageTool({
+  server,
+  config,
+  client,
+}: ToolDeps): void {
   registerSafeTool(
     server,
     "generate_image",
     {
       title: "Generate Image",
       description: "Generate image from prompt",
-      inputSchema: generateImageInputSchema
+      inputSchema: generateImageInputSchema,
     },
     async (args) => {
       assertRunConfirm(config, args.confirm);
@@ -27,10 +31,10 @@ export function registerGenerateImageTool({ server, config, client }: ToolDeps):
           response_format: args.response_format,
           wait: args.wait,
           wait_timeout_seconds: args.wait_timeout_seconds,
-          poll_interval_ms: args.poll_interval_ms
+          poll_interval_ms: args.poll_interval_ms,
         },
-        { token: args.token }
+        { token: args.token },
       );
-    }
+    },
   );
 }

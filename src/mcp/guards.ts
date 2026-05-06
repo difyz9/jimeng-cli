@@ -7,6 +7,6 @@ export function assertRunConfirm(config: McpConfig, confirm?: string): void {
 
   throw new McpToolError(
     "VALIDATION_ERROR",
-    'This tool requires explicit confirmation: set "confirm" to "RUN".'
+    'This tool requires explicit confirmation: set "confirm" to "RUN".',
   );
 }

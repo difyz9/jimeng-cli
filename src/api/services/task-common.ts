@@ -9,7 +9,10 @@ export interface AsyncTaskInfo {
   data: null;
 }
 
-export function buildPendingTaskInfo(taskId: string, type: "image" | "video"): AsyncTaskInfo {
+export function buildPendingTaskInfo(
+  taskId: string,
+  type: "image" | "video",
+): AsyncTaskInfo {
   return {
     task_id: taskId,
     type,
@@ -25,15 +28,20 @@ export function buildPollerOptions(
   pollIntervalMs: number | undefined,
   defaultTimeoutSeconds: number,
   defaultPollIntervalMs: number,
-  defaultMaxPollCount: number
+  defaultMaxPollCount: number,
 ): { timeoutSeconds: number; pollInterval: number; maxPollCount: number } {
-  const timeoutSeconds = Number.isFinite(waitTimeoutSeconds) && waitTimeoutSeconds! > 0
-    ? Math.floor(waitTimeoutSeconds!)
-    : defaultTimeoutSeconds;
-  const pollInterval = Number.isFinite(pollIntervalMs) && pollIntervalMs! > 0
-    ? Math.floor(pollIntervalMs!)
-    : defaultPollIntervalMs;
-  const computedMaxPollCount = Math.max(1, Math.ceil((timeoutSeconds * 1000) / pollInterval));
+  const timeoutSeconds =
+    Number.isFinite(waitTimeoutSeconds) && waitTimeoutSeconds! > 0
+      ? Math.floor(waitTimeoutSeconds!)
+      : defaultTimeoutSeconds;
+  const pollInterval =
+    Number.isFinite(pollIntervalMs) && pollIntervalMs! > 0
+      ? Math.floor(pollIntervalMs!)
+      : defaultPollIntervalMs;
+  const computedMaxPollCount = Math.max(
+    1,
+    Math.ceil((timeoutSeconds * 1000) / pollInterval),
+  );
   return {
     timeoutSeconds,
     pollInterval,

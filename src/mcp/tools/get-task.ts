@@ -10,15 +10,16 @@ export function registerGetTaskTool({ server, client }: ToolDeps): void {
       title: "Get Task",
       description: "Get image/video task status by task_id",
       inputSchema: getTaskInputSchema,
-      annotations: { readOnlyHint: true }
+      annotations: { readOnlyHint: true },
     },
-    async (args) => client.getTask(
-      args.task_id,
-      { token: args.token },
-      {
-        type: args.type,
-        response_format: args.response_format
-      }
-    )
+    async (args) =>
+      client.getTask(
+        args.task_id,
+        { token: args.token },
+        {
+          type: args.type,
+          response_format: args.response_format,
+        },
+      ),
   );
 }

@@ -13,19 +13,21 @@ import logger from "@/core/utils/logger.ts";
  * @returns 图片URL或null
  */
 export function extractImageUrl(item: any, index?: number): string | null {
-  const logPrefix = index !== undefined ? `图片 ${index + 1}` : '图片';
+  const logPrefix = index !== undefined ? `图片 ${index + 1}` : "图片";
 
   // 只提取 large_images
   if (item?.image?.large_images?.[0]?.image_url) {
     let imageUrl = item.image.large_images[0].image_url;
     // 将URL中的 \u0026 转换为 &
-    imageUrl = imageUrl.replace(/\\u0026/g, '&');
+    imageUrl = imageUrl.replace(/\\u0026/g, "&");
     logger.debug(`${logPrefix}: 使用 large_images URL`);
     return imageUrl;
   }
 
   // 无法提取URL，记录警告
-  logger.warn(`${logPrefix}: 无法提取URL，缺少 image.large_images[0].image_url 字段。item结构: ${JSON.stringify(item, null, 2)}`);
+  logger.warn(
+    `${logPrefix}: 无法提取URL，缺少 image.large_images[0].image_url 字段。item结构: ${JSON.stringify(item, null, 2)}`,
+  );
   return null;
 }
 
@@ -78,20 +80,30 @@ export function extractVideoUrl(item: any): string | null {
  * @param refreshToken 刷新令牌
  * @returns 高质量视频URL，失败时返回 null
  */
-export async function fetchHighQualityVideoUrl(itemId: string, refreshToken: string, regionInfo: RegionInfo): Promise<string | null> {
+export async function fetchHighQualityVideoUrl(
+  itemId: string,
+  refreshToken: string,
+  regionInfo: RegionInfo,
+): Promise<string | null> {
   try {
     logger.info(`尝试获取高质量视频下载URL，item_id: ${itemId}`);
 
-    const result = await request("post", "/mweb/v1/get_local_item_list", refreshToken, regionInfo, {
-      data: {
-        item_id_list: [itemId],
-        pack_item_opt: {
-          scene: 1,
-          need_data_integrity: true,
+    const result = await request(
+      "post",
+      "/mweb/v1/get_local_item_list",
+      refreshToken,
+      regionInfo,
+      {
+        data: {
+          item_id_list: [itemId],
+          pack_item_opt: {
+            scene: 1,
+            need_data_integrity: true,
+          },
+          is_for_video_download: true,
         },
-        is_for_video_download: true,
       },
-    });
+    );
 
     const responseStr = JSON.stringify(result);
     logger.info(`get_local_item_list 响应大小: ${responseStr.length} 字符`);
@@ -107,20 +119,26 @@ export async function fetchHighQualityVideoUrl(itemId: string, refreshToken: str
         item?.video?.url;
 
       if (videoUrl) {
-        logger.info(`从get_local_item_list结构化字段获取到高清视频URL: ${videoUrl}`);
+        logger.info(
+          `从get_local_item_list结构化字段获取到高清视频URL: ${videoUrl}`,
+        );
         return videoUrl;
       }
     }
 
     // 策略2: 正则匹配 jimeng / capcut / dreamina 高质量URL
-    const cdnUrlMatch = responseStr.match(/https:\/\/v[0-9]+-[^"\\]*\.(jimeng|capcut|dreamina)\.com\/[^"\s\\]+/);
+    const cdnUrlMatch = responseStr.match(
+      /https:\/\/v[0-9]+-[^"\\]*\.(jimeng|capcut|dreamina)\.com\/[^"\s\\]+/,
+    );
     if (cdnUrlMatch && cdnUrlMatch[0]) {
       logger.info(`正则提取到视频URL: ${cdnUrlMatch[0]}`);
       return cdnUrlMatch[0];
     }
 
     // 策略3: 匹配任何 vlabvod 域名（兜底）
-    const vlabUrlMatch = responseStr.match(/https:\/\/v[0-9]+-[^"\\]*\.vlabvod\.com\/[^"\s\\]+/);
+    const vlabUrlMatch = responseStr.match(
+      /https:\/\/v[0-9]+-[^"\\]*\.vlabvod\.com\/[^"\s\\]+/,
+    );
     if (vlabUrlMatch && vlabUrlMatch[0]) {
       logger.info(`正则提取到视频URL: ${vlabUrlMatch[0]}`);
       return vlabUrlMatch[0];

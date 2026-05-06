@@ -9,7 +9,7 @@ import {
   getCredit,
   getTokenLiveStatus,
   receiveCredit,
-  type RegionCode
+  type RegionCode,
 } from "@/api/services/core.ts";
 import tokenPool from "@/core/runtime/session-pool.ts";
 import { maskToken } from "@/core/utils/util.ts";
@@ -42,7 +42,10 @@ export type TokenSubcommandDef = {
 
 type TokenCommandDeps = {
   getUsage: (name: TokenSubcommandName) => string;
-  getSingleString: (args: Record<string, unknown>, key: string) => string | undefined;
+  getSingleString: (
+    args: Record<string, unknown>,
+    key: string,
+  ) => string | undefined;
   getRegionWithDefault: (args: Record<string, unknown>) => string;
   toStringList: (raw: unknown) => string[];
   parseRegionOrFail: (region: string | undefined) => RegionCode | undefined;
@@ -61,7 +64,8 @@ type TokenCommandDeps = {
 // ---------------------------------------------------------------------------
 
 function formatUnixMs(value: unknown): string {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "-";
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
+    return "-";
   return new Date(value).toISOString();
 }
 
@@ -70,7 +74,9 @@ function printTokenEntriesTable(items: unknown[]): void {
     console.log("(empty)");
     return;
   }
-  console.log("token\tregion\tenabled\tlive\tlastCredit\tlastCheckedAt\tfailures");
+  console.log(
+    "token\tregion\tenabled\tlive\tlastCredit\tlastCheckedAt\tfailures",
+  );
   for (const item of items) {
     if (!item || typeof item !== "object") continue;
     const e = item as JsonRecord;
@@ -78,10 +84,16 @@ function printTokenEntriesTable(items: unknown[]): void {
     const region = typeof e.region === "string" ? e.region : "-";
     const enabled = typeof e.enabled === "boolean" ? String(e.enabled) : "-";
     const live = typeof e.live === "boolean" ? String(e.live) : "-";
-    const lastCredit = typeof e.lastCredit === "number" ? String(e.lastCredit) : "-";
+    const lastCredit =
+      typeof e.lastCredit === "number" ? String(e.lastCredit) : "-";
     const lastCheckedAt = formatUnixMs(e.lastCheckedAt);
-    const failures = typeof e.consecutiveFailures === "number" ? String(e.consecutiveFailures) : "-";
-    console.log(`${token}\t${region}\t${enabled}\t${live}\t${lastCredit}\t${lastCheckedAt}\t${failures}`);
+    const failures =
+      typeof e.consecutiveFailures === "number"
+        ? String(e.consecutiveFailures)
+        : "-";
+    console.log(
+      `${token}\t${region}\t${enabled}\t${live}\t${lastCredit}\t${lastCheckedAt}\t${failures}`,
+    );
   }
 }
 
@@ -101,7 +113,10 @@ async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
-async function readTokensFromFile(filePathArg: string, deps: Pick<TokenCommandDeps, "fail">): Promise<string[]> {
+async function readTokensFromFile(
+  filePathArg: string,
+  deps: Pick<TokenCommandDeps, "fail">,
+): Promise<string[]> {
   const filePath = path.resolve(filePathArg);
   if (!(await pathExists(filePath))) {
     deps.fail(`Token file not found: ${filePath}`);
@@ -116,7 +131,7 @@ async function collectTokensFromArgs(
   args: Record<string, unknown>,
   usage: string,
   deps: Pick<TokenCommandDeps, "toStringList" | "getSingleString" | "fail">,
-  required = false
+  required = false,
 ): Promise<string[]> {
   const tokens = [...deps.toStringList(args.token)];
   const tokenFile = deps.getSingleString(args, "token-file");
@@ -142,14 +157,16 @@ function resolveTokenRegionPairs(
   explicitTokens: string[],
   regionCode: RegionCode | undefined,
   deps: Pick<TokenCommandDeps, "fail">,
-  opts?: { requireLive?: boolean }
+  opts?: { requireLive?: boolean },
 ): Array<{ token: string; region: RegionCode }> {
   if (explicitTokens.length > 0) {
     return explicitTokens.map((token) => {
       const entryRegion = tokenPool.getTokenEntry(token)?.region;
       const finalRegion = regionCode || entryRegion;
       if (!finalRegion) {
-        deps.fail(`Missing region for token ${maskToken(token)}. Provide --region or register token in token-pool.`);
+        deps.fail(
+          `Missing region for token ${maskToken(token)}. Provide --region or register token in token-pool.`,
+        );
       }
       return { token, region: finalRegion };
     });
@@ -167,14 +184,19 @@ function resolveTokenRegionPairs(
     deps.fail("No token available. Provide --token or configure token-pool.");
   }
 
-  return entries.map((item) => ({ token: item.token, region: item.region as RegionCode }));
+  return entries.map((item) => ({
+    token: item.token,
+    region: item.region as RegionCode,
+  }));
 }
 
 // ---------------------------------------------------------------------------
 // Command handlers
 // ---------------------------------------------------------------------------
 
-export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandDef[] {
+export function createTokenSubcommands(
+  deps: TokenCommandDeps,
+): TokenSubcommandDef[] {
   const handleTokenCheck: CliHandler = async (argv) => {
     const args = minimist(argv, {
       string: ["token", "token-file", "region"],
@@ -187,37 +209,63 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
     }
 
     const explicitRegion = deps.getSingleString(args, "region");
-    const regionCode = explicitRegion ? deps.parseRegionOrFail(explicitRegion) : undefined;
+    const regionCode = explicitRegion
+      ? deps.parseRegionOrFail(explicitRegion)
+      : undefined;
 
     await deps.ensureTokenPoolReady();
 
-    const explicitTokens = await collectTokensFromArgs(args, usage, deps, false);
+    const explicitTokens = await collectTokensFromArgs(
+      args,
+      usage,
+      deps,
+      false,
+    );
     // check defaults to all enabled tokens (not just live), so requireLive=false
-    const pairs = resolveTokenRegionPairs(explicitTokens, regionCode, deps, { requireLive: false });
+    const pairs = resolveTokenRegionPairs(explicitTokens, regionCode, deps, {
+      requireLive: false,
+    });
 
     if (!args.json) {
       console.log(`Checking ${pairs.length} token(s)`);
     }
 
     const results = await Promise.all(
-      pairs.map(async ({ token, region }): Promise<{ token_masked: string; region: string; live?: boolean; error?: string }> => {
-        const masked = maskToken(token);
-        try {
-          const live = await getTokenLiveStatus(token, buildRegionInfo(region));
-          await tokenPool.syncTokenCheckResult(token, live);
-          if (live) {
-            if (!args.json) console.log(`[OK]   ${masked} (${region}) live=true`);
-            return { token_masked: masked, region, live: true };
-          } else {
-            if (!args.json) console.log(`[FAIL] ${masked} (${region}) live=false`);
-            return { token_masked: masked, region, live: false };
+      pairs.map(
+        async ({
+          token,
+          region,
+        }): Promise<{
+          token_masked: string;
+          region: string;
+          live?: boolean;
+          error?: string;
+        }> => {
+          const masked = maskToken(token);
+          try {
+            const live = await getTokenLiveStatus(
+              token,
+              buildRegionInfo(region),
+            );
+            await tokenPool.syncTokenCheckResult(token, live);
+            if (live) {
+              if (!args.json)
+                console.log(`[OK]   ${masked} (${region}) live=true`);
+              return { token_masked: masked, region, live: true };
+            } else {
+              if (!args.json)
+                console.log(`[FAIL] ${masked} (${region}) live=false`);
+              return { token_masked: masked, region, live: false };
+            }
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            if (!args.json)
+              console.log(`[ERROR] ${masked} (${region}) ${message}`);
+            return { token_masked: masked, region, error: message };
           }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          if (!args.json) console.log(`[ERROR] ${masked} (${region}) ${message}`);
-          return { token_masked: masked, region, error: message };
-        }
-      })
+        },
+      ),
     );
 
     const invalid = results.filter((r) => r.live === false).length;
@@ -230,7 +278,9 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
         request_errors: requestErrors,
       });
     } else {
-      console.log(`Summary: total=${pairs.length} invalid=${invalid} request_errors=${requestErrors}`);
+      console.log(
+        `Summary: total=${pairs.length} invalid=${invalid} request_errors=${requestErrors}`,
+      );
     }
     if (requestErrors > 0) process.exit(3);
     if (invalid > 0) process.exit(2);
@@ -248,7 +298,9 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
       deps.printCommandJson("token.list", snapshot);
       return;
     }
-    const body = (snapshot && typeof snapshot === "object" ? snapshot : {}) as JsonRecord;
+    const body = (
+      snapshot && typeof snapshot === "object" ? snapshot : {}
+    ) as JsonRecord;
     if (body.summary && typeof body.summary === "object") {
       console.log("Summary:");
       deps.printJson(body.summary);
@@ -257,7 +309,10 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
     printTokenEntriesTable(Array.isArray(body.items) ? body.items : []);
   };
 
-  const handleTokenPointsOrReceive = async (argv: string[], action: "points" | "receive"): Promise<void> => {
+  const handleTokenPointsOrReceive = async (
+    argv: string[],
+    action: "points" | "receive",
+  ): Promise<void> => {
     const args = minimist(argv, {
       string: ["token", "token-file", "region"],
       boolean: ["help", "json"],
@@ -269,51 +324,102 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
     }
 
     const regionArg = deps.getSingleString(args, "region");
-    const regionCode = regionArg ? deps.parseRegionOrFail(regionArg) : undefined;
+    const regionCode = regionArg
+      ? deps.parseRegionOrFail(regionArg)
+      : undefined;
     await deps.ensureTokenPoolReady();
 
-    const explicitTokens = await collectTokensFromArgs(args, usage, deps, false);
+    const explicitTokens = await collectTokensFromArgs(
+      args,
+      usage,
+      deps,
+      false,
+    );
     const pairs = resolveTokenRegionPairs(explicitTokens, regionCode, deps);
 
-    const toErrorResult = (token: string, region: RegionCode, error: unknown) => ({
-      token_masked: maskToken(token), region, error: error instanceof Error ? error.message : String(error),
+    const toErrorResult = (
+      token: string,
+      region: RegionCode,
+      error: unknown,
+    ) => ({
+      token_masked: maskToken(token),
+      region,
+      error: error instanceof Error ? error.message : String(error),
     });
 
     type ResultBase = { token_masked: string; region: RegionCode };
     type ErrorResult = ResultBase & { error: string };
-    type CreditResult = ResultBase & { points: Awaited<ReturnType<typeof getCredit>> };
-    type ReceiveResult = ResultBase & { credits: Awaited<ReturnType<typeof getCredit>>; received: boolean } & Partial<ErrorResult>;
+    type CreditResult = ResultBase & {
+      points: Awaited<ReturnType<typeof getCredit>>;
+    };
+    type ReceiveResult = ResultBase & {
+      credits: Awaited<ReturnType<typeof getCredit>>;
+      received: boolean;
+    } & Partial<ErrorResult>;
 
-    const fetchPoints = async ({ token, region }: { token: string; region: RegionCode }): Promise<CreditResult | ErrorResult> => {
+    const fetchPoints = async ({
+      token,
+      region,
+    }: {
+      token: string;
+      region: RegionCode;
+    }): Promise<CreditResult | ErrorResult> => {
       try {
-        return { token_masked: maskToken(token), region, points: await getCredit(token, buildRegionInfo(region)) };
+        return {
+          token_masked: maskToken(token),
+          region,
+          points: await getCredit(token, buildRegionInfo(region)),
+        };
       } catch (error) {
         return toErrorResult(token, region, error);
       }
     };
 
-    const processReceive = async ({ token, region }: { token: string; region: RegionCode }): Promise<ReceiveResult | ErrorResult> => {
+    const processReceive = async ({
+      token,
+      region,
+    }: {
+      token: string;
+      region: RegionCode;
+    }): Promise<ReceiveResult | ErrorResult> => {
       const regionInfo = buildRegionInfo(region);
       try {
         const currentCredit = await getCredit(token, regionInfo);
         if (currentCredit.totalCredit > 0) {
-          return { token_masked: maskToken(token), region, credits: currentCredit, received: false };
+          return {
+            token_masked: maskToken(token),
+            region,
+            credits: currentCredit,
+            received: false,
+          };
         }
         try {
           await receiveCredit(token, regionInfo);
           const updatedCredit = await getCredit(token, regionInfo);
-          return { token_masked: maskToken(token), region, credits: updatedCredit, received: true };
+          return {
+            token_masked: maskToken(token),
+            region,
+            credits: updatedCredit,
+            received: true,
+          };
         } catch (error) {
-          return { token_masked: maskToken(token), region, credits: currentCredit, received: false, ...toErrorResult(token, region, error) };
+          return {
+            token_masked: maskToken(token),
+            region,
+            credits: currentCredit,
+            received: false,
+            ...toErrorResult(token, region, error),
+          };
         }
       } catch (error) {
         return toErrorResult(token, region, error);
       }
     };
 
-    const payload = action === "points"
-      ? await Promise.all(pairs.map(fetchPoints))
-      : await Promise.all(pairs.map(processReceive));
+    const payload =
+      action === "points"
+        ? await Promise.all(pairs.map(fetchPoints))
+        : await Promise.all(pairs.map(processReceive));
 
     if (args.json) {
       deps.printCommandJson(`token.${action}`, payload);
@@ -322,7 +428,10 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
     deps.printJson(payload);
   };
 
-  const handleTokenAddOrRemove = async (argv: string[], action: "add" | "remove"): Promise<void> => {
+  const handleTokenAddOrRemove = async (
+    argv: string[],
+    action: "add" | "remove",
+  ): Promise<void> => {
     const args = minimist(argv, {
       string: ["token", "token-file", "region"],
       boolean: ["help", "json"],
@@ -343,7 +452,9 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
       const region = deps.getRegionWithDefault(args);
       const regionCode = deps.parseRegionOrFail(region);
       payload = {
-        ...(await tokenPool.addTokens(tokens, { defaultRegion: regionCode || undefined })),
+        ...(await tokenPool.addTokens(tokens, {
+          defaultRegion: regionCode || undefined,
+        })),
         summary: tokenPool.getSummary(),
       };
       jsonMeta = { region };
@@ -355,14 +466,24 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
     }
 
     if (args.json) {
-      deps.printCommandJson(`token.${action}`, deps.unwrapBody(payload), jsonMeta);
+      deps.printCommandJson(
+        `token.${action}`,
+        deps.unwrapBody(payload),
+        jsonMeta,
+      );
       return;
     }
     deps.printJson(deps.unwrapBody(payload));
   };
 
-  const handleTokenEnableOrDisable = async (argv: string[], action: "enable" | "disable"): Promise<void> => {
-    const args = minimist(argv, { string: ["token"], boolean: ["help", "json"] });
+  const handleTokenEnableOrDisable = async (
+    argv: string[],
+    action: "enable" | "disable",
+  ): Promise<void> => {
+    const args = minimist(argv, {
+      string: ["token"],
+      boolean: ["help", "json"],
+    });
     const usage = deps.getUsage(action);
     if (args.help) {
       console.log(usage);
@@ -396,14 +517,19 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
       deps.printCommandJson("token.pool", snapshot);
       return;
     }
-    const body = (snapshot && typeof snapshot === "object" ? snapshot : {}) as JsonRecord;
+    const body = (
+      snapshot && typeof snapshot === "object" ? snapshot : {}
+    ) as JsonRecord;
     console.log("Summary:");
     deps.printJson(body.summary ?? {});
     console.log("Entries:");
     printTokenEntriesTable(Array.isArray(body.items) ? body.items : []);
   };
 
-  const handleTokenPoolCheckOrReload = async (argv: string[], action: "pool-check" | "pool-reload"): Promise<void> => {
+  const handleTokenPoolCheckOrReload = async (
+    argv: string[],
+    action: "pool-check" | "pool-reload",
+  ): Promise<void> => {
     const args = minimist(argv, { boolean: ["help", "json"] });
     if (args.help) {
       console.log(deps.getUsage(action));
@@ -412,10 +538,17 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
     await deps.ensureTokenPoolReady();
     let payload;
     if (action === "pool-check") {
-      payload = { ...(await tokenPool.runHealthCheck()), summary: tokenPool.getSummary() };
+      payload = {
+        ...(await tokenPool.runHealthCheck()),
+        summary: tokenPool.getSummary(),
+      };
     } else {
       tokenPool.reloadFromDisk();
-      payload = { reloaded: true, summary: tokenPool.getSummary(), items: buildTokenPoolSnapshot().items };
+      payload = {
+        reloaded: true,
+        summary: tokenPool.getSummary(),
+        items: buildTokenPoolSnapshot().items,
+      };
     }
     if (args.json) {
       deps.printCommandJson(`token.${action}`, deps.unwrapBody(payload));
@@ -474,7 +607,8 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
     {
       name: "add",
       description: "Add token(s) into token-pool",
-      usageLine: "  jimeng token add --token <token> [--token <token> ...] [options]",
+      usageLine:
+        "  jimeng token add --token <token> [--token <token> ...] [options]",
       options: [
         "  --token <token>          Token, can be repeated",
         "  --token-file <path>      Read tokens from file (one per line, # for comments)",
@@ -487,7 +621,8 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
     {
       name: "remove",
       description: "Remove token(s) from token-pool",
-      usageLine: "  jimeng token remove --token <token> [--token <token> ...] [options]",
+      usageLine:
+        "  jimeng token remove --token <token> [--token <token> ...] [options]",
       options: [
         "  --token <token>          Token, can be repeated",
         "  --token-file <path>      Read tokens from file (one per line, # for comments)",
@@ -500,14 +635,22 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
       name: "enable",
       description: "Enable one token in token-pool",
       usageLine: "  jimeng token enable --token <token> [options]",
-      options: ["  --token <token>          Required, a single token", deps.jsonOption, deps.helpOption],
+      options: [
+        "  --token <token>          Required, a single token",
+        deps.jsonOption,
+        deps.helpOption,
+      ],
       handler: async (argv) => handleTokenEnableOrDisable(argv, "enable"),
     },
     {
       name: "disable",
       description: "Disable one token in token-pool",
       usageLine: "  jimeng token disable --token <token> [options]",
-      options: ["  --token <token>          Required, a single token", deps.jsonOption, deps.helpOption],
+      options: [
+        "  --token <token>          Required, a single token",
+        deps.jsonOption,
+        deps.helpOption,
+      ],
       handler: async (argv) => handleTokenEnableOrDisable(argv, "disable"),
     },
     {
@@ -529,7 +672,8 @@ export function createTokenSubcommands(deps: TokenCommandDeps): TokenSubcommandD
       description: "Reload token-pool from disk",
       usageLine: "  jimeng token pool-reload [options]",
       options: [deps.jsonOption, deps.helpOption],
-      handler: async (argv) => handleTokenPoolCheckOrReload(argv, "pool-reload"),
+      handler: async (argv) =>
+        handleTokenPoolCheckOrReload(argv, "pool-reload"),
     },
   ];
 }

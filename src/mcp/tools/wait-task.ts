@@ -9,17 +9,18 @@ export function registerWaitTaskTool({ server, client }: ToolDeps): void {
     {
       title: "Wait Task",
       description: "Wait for image/video task completion by task_id",
-      inputSchema: waitTaskInputSchema
+      inputSchema: waitTaskInputSchema,
     },
-    async (args) => client.waitTask(
-      args.task_id,
-      {
-        type: args.type,
-        response_format: args.response_format,
-        wait_timeout_seconds: args.wait_timeout_seconds,
-        poll_interval_ms: args.poll_interval_ms
-      },
-      { token: args.token }
-    )
+    async (args) =>
+      client.waitTask(
+        args.task_id,
+        {
+          type: args.type,
+          response_format: args.response_format,
+          wait_timeout_seconds: args.wait_timeout_seconds,
+          poll_interval_ms: args.poll_interval_ms,
+        },
+        { token: args.token },
+      ),
   );
 }

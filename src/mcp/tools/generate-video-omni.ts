@@ -14,7 +14,7 @@ import {
   collectStringArray,
   MAX_IMAGE_SLOTS,
   MAX_VIDEO_SLOTS,
-  uniqueStrings
+  uniqueStrings,
 } from "./video-utils.ts";
 
 type GenerateVideoOmniArgs = z.infer<typeof generateVideoOmniInputSchema>;
@@ -23,12 +23,20 @@ function normalizeOmniPayload(args: GenerateVideoOmniArgs): {
   body: JsonObject;
   uploadFiles: MultipartUploadFile[];
 } {
-  const imageSlotUrls = collectIndexedSlotUrls(args, "image_file", MAX_IMAGE_SLOTS);
-  const videoSlotUrls = collectIndexedSlotUrls(args, "video_file", MAX_VIDEO_SLOTS);
+  const imageSlotUrls = collectIndexedSlotUrls(
+    args,
+    "image_file",
+    MAX_IMAGE_SLOTS,
+  );
+  const videoSlotUrls = collectIndexedSlotUrls(
+    args,
+    "video_file",
+    MAX_VIDEO_SLOTS,
+  );
   const imageUrls = uniqueStrings([
     ...collectStringArray(args.image_urls),
     ...collectStringArray(args.file_paths),
-    ...collectStringArray(args.filePaths)
+    ...collectStringArray(args.filePaths),
   ]);
   const videoUrls = uniqueStrings(collectStringArray(args.video_urls));
   const imageFiles = uniqueStrings(collectStringArray(args.image_files));
@@ -49,8 +57,22 @@ function normalizeOmniPayload(args: GenerateVideoOmniArgs): {
   const occupiedImageSlots = new Set<number>(imageSlotUrls.keys());
   const occupiedVideoSlots = new Set<number>(videoSlotUrls.keys());
 
-  appendUrlMaterials(body, occupiedImageSlots, imageUrls, "image_file", MAX_IMAGE_SLOTS, "image");
-  appendUrlMaterials(body, occupiedVideoSlots, videoUrls, "video_file", MAX_VIDEO_SLOTS, "video");
+  appendUrlMaterials(
+    body,
+    occupiedImageSlots,
+    imageUrls,
+    "image_file",
+    MAX_IMAGE_SLOTS,
+    "image",
+  );
+  appendUrlMaterials(
+    body,
+    occupiedVideoSlots,
+    videoUrls,
+    "video_file",
+    MAX_VIDEO_SLOTS,
+    "video",
+  );
 
   const uploadFiles: MultipartUploadFile[] = [];
   appendFileMaterials(
@@ -59,7 +81,7 @@ function normalizeOmniPayload(args: GenerateVideoOmniArgs): {
     imageFiles,
     "image_file",
     MAX_IMAGE_SLOTS,
-    "image"
+    "image",
   );
   appendFileMaterials(
     uploadFiles,
@@ -67,25 +89,30 @@ function normalizeOmniPayload(args: GenerateVideoOmniArgs): {
     videoFiles,
     "video_file",
     MAX_VIDEO_SLOTS,
-    "video"
+    "video",
   );
 
   return { body, uploadFiles };
 }
 
-export function registerGenerateVideoOmniTool({ server, config, client }: ToolDeps): void {
+export function registerGenerateVideoOmniTool({
+  server,
+  config,
+  client,
+}: ToolDeps): void {
   registerSafeTool(
     server,
     "generate_video_omni",
     {
       title: "Generate Video Omni",
-      description: "Generate omni_reference video with URL and local-file materials",
-      inputSchema: generateVideoOmniInputSchema
+      description:
+        "Generate omni_reference video with URL and local-file materials",
+      inputSchema: generateVideoOmniInputSchema,
     },
     async (args: GenerateVideoOmniArgs) => {
       assertRunConfirm(config, args.confirm);
       const { body, uploadFiles } = normalizeOmniPayload(args);
       return client.generateVideoOmni(body, { token: args.token }, uploadFiles);
-    }
+    },
   );
 }

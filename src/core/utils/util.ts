@@ -12,7 +12,7 @@ const CRC32_TABLE = (() => {
   for (let i = 0; i < 256; i++) {
     let crc = i;
     for (let j = 0; j < 8; j++) {
-      crc = (crc & 1) ? (0xEDB88320 ^ (crc >>> 1)) : (crc >>> 1);
+      crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
     }
     table[i] = crc;
   }
@@ -20,7 +20,8 @@ const CRC32_TABLE = (() => {
 })();
 
 const util = {
-  uuid: (separator = true) => (separator ? uuidv4() : uuidv4().replace(/-/g, "")),
+  uuid: (separator = true) =>
+    separator ? uuidv4() : uuidv4().replace(/-/g, ""),
 
   getDateString(format = "yyyy-MM-dd", date = new Date()) {
     return dateFormat(date, format);
@@ -33,7 +34,11 @@ const util = {
   },
 
   isBASE64(value: unknown) {
-    return value != null && typeof value === "string" && /^[a-zA-Z0-9\/\+]+(=?)+$/.test(value);
+    return (
+      value != null &&
+      typeof value === "string" &&
+      /^[a-zA-Z0-9\/\+]+(=?)+$/.test(value)
+    );
   },
 
   isBASE64Data(value: unknown) {
@@ -75,14 +80,15 @@ const util = {
    * @returns CRC32 十六进制字符串
    */
   calculateCRC32(buffer: ArrayBuffer | Buffer): string {
-    let crc = 0 ^ (-1);
-    const bytes = buffer instanceof ArrayBuffer
-      ? new Uint8Array(buffer)
-      : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    let crc = 0 ^ -1;
+    const bytes =
+      buffer instanceof ArrayBuffer
+        ? new Uint8Array(buffer)
+        : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
     for (let i = 0; i < bytes.length; i++) {
-      crc = (crc >>> 8) ^ CRC32_TABLE[(crc ^ bytes[i]) & 0xFF];
+      crc = (crc >>> 8) ^ CRC32_TABLE[(crc ^ bytes[i]) & 0xff];
     }
-    return ((crc ^ (-1)) >>> 0).toString(16).padStart(8, '0');
+    return ((crc ^ -1) >>> 0).toString(16).padStart(8, "0");
   },
 };
 

@@ -1,5 +1,10 @@
 import { RegionInfo } from "@/api/services/core.ts";
-import { BASE_URL_DREAMINA_US, BASE_URL_DREAMINA_HK, BASE_URL_IMAGEX_US, BASE_URL_IMAGEX_HK } from "@/api/constants/dreamina.ts";
+import {
+  BASE_URL_DREAMINA_US,
+  BASE_URL_DREAMINA_HK,
+  BASE_URL_IMAGEX_US,
+  BASE_URL_IMAGEX_HK,
+} from "@/api/constants/dreamina.ts";
 
 /**
  * 区域配置工具类
@@ -9,13 +14,21 @@ export class RegionUtils {
   /**
    * 获取ServiceId
    */
-  static getServiceId(regionInfo: RegionInfo, providedServiceId?: string): string {
+  static getServiceId(
+    regionInfo: RegionInfo,
+    providedServiceId?: string,
+  ): string {
     if (providedServiceId) {
       return providedServiceId;
     }
 
     // US/HK/JP/SG 使用相同的 service_id
-    if (regionInfo.isUS || regionInfo.isHK || regionInfo.isJP || regionInfo.isSG) {
+    if (
+      regionInfo.isUS ||
+      regionInfo.isHK ||
+      regionInfo.isJP ||
+      regionInfo.isSG
+    ) {
       return "wopfjsm1ax";
     }
 
@@ -35,7 +48,7 @@ export class RegionUtils {
       return BASE_URL_IMAGEX_HK;
     }
 
-    return 'https://imagex.bytedanceapi.com';
+    return "https://imagex.bytedanceapi.com";
   }
 
   /**
@@ -50,7 +63,7 @@ export class RegionUtils {
       return new URL(BASE_URL_DREAMINA_HK).origin;
     }
 
-    return 'https://jimeng.jianying.com';
+    return "https://jimeng.jianying.com";
   }
 
   /**
@@ -58,20 +71,23 @@ export class RegionUtils {
    */
   static getAWSRegion(regionInfo: RegionInfo): string {
     if (regionInfo.isUS) {
-      return 'us-east-1';
+      return "us-east-1";
     }
 
     if (regionInfo.isHK || regionInfo.isJP || regionInfo.isSG) {
-      return 'ap-southeast-1';
+      return "ap-southeast-1";
     }
 
-    return 'cn-north-1';
+    return "cn-north-1";
   }
 
   /**
    * 获取Referer路径
    */
-  static getRefererPath(regionInfo: RegionInfo, path: string = '/ai-tool/generate'): string {
+  static getRefererPath(
+    regionInfo: RegionInfo,
+    path: string = "/ai-tool/generate",
+  ): string {
     const origin = this.getOrigin(regionInfo);
     return `${origin}${path}`;
   }

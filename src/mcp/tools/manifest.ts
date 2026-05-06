@@ -25,6 +25,14 @@ export const MCP_TOOL_MANIFEST: McpToolManifestItem[] = [
   { id: "generate_image", register: registerGenerateImageTool },
   { id: "upscale_image", isAdvanced: true, register: registerUpscaleImageTool },
   { id: "edit_image", isAdvanced: true, register: registerEditImageTool },
-  { id: "generate_video_flf", isAdvanced: true, register: registerGenerateVideoTool },
-  { id: "generate_video_omni", isAdvanced: true, register: registerGenerateVideoOmniTool }
+  {
+    id: "generate_video_flf",
+    isAdvanced: true,
+    register: registerGenerateVideoTool,
+  },
+  {
+    id: "generate_video_omni",
+    isAdvanced: true,
+    register: registerGenerateVideoOmniTool,
+  },
 ];

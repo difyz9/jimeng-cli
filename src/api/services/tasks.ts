@@ -28,15 +28,69 @@ const IMAGE_INFO_PAYLOAD = {
   height: 2048,
   format: "webp",
   image_scene_list: [
-    { scene: "smart_crop", width: 360, height: 360, uniq_key: "smart_crop-w:360-h:360", format: "webp" },
-    { scene: "smart_crop", width: 480, height: 480, uniq_key: "smart_crop-w:480-h:480", format: "webp" },
-    { scene: "smart_crop", width: 720, height: 720, uniq_key: "smart_crop-w:720-h:720", format: "webp" },
-    { scene: "smart_crop", width: 720, height: 480, uniq_key: "smart_crop-w:720-h:480", format: "webp" },
-    { scene: "normal", width: 2400, height: 2400, uniq_key: "2400", format: "webp" },
-    { scene: "normal", width: 1080, height: 1080, uniq_key: "1080", format: "webp" },
-    { scene: "normal", width: 720, height: 720, uniq_key: "720", format: "webp" },
-    { scene: "normal", width: 480, height: 480, uniq_key: "480", format: "webp" },
-    { scene: "normal", width: 360, height: 360, uniq_key: "360", format: "webp" },
+    {
+      scene: "smart_crop",
+      width: 360,
+      height: 360,
+      uniq_key: "smart_crop-w:360-h:360",
+      format: "webp",
+    },
+    {
+      scene: "smart_crop",
+      width: 480,
+      height: 480,
+      uniq_key: "smart_crop-w:480-h:480",
+      format: "webp",
+    },
+    {
+      scene: "smart_crop",
+      width: 720,
+      height: 720,
+      uniq_key: "smart_crop-w:720-h:720",
+      format: "webp",
+    },
+    {
+      scene: "smart_crop",
+      width: 720,
+      height: 480,
+      uniq_key: "smart_crop-w:720-h:480",
+      format: "webp",
+    },
+    {
+      scene: "normal",
+      width: 2400,
+      height: 2400,
+      uniq_key: "2400",
+      format: "webp",
+    },
+    {
+      scene: "normal",
+      width: 1080,
+      height: 1080,
+      uniq_key: "1080",
+      format: "webp",
+    },
+    {
+      scene: "normal",
+      width: 720,
+      height: 720,
+      uniq_key: "720",
+      format: "webp",
+    },
+    {
+      scene: "normal",
+      width: 480,
+      height: 480,
+      uniq_key: "480",
+      format: "webp",
+    },
+    {
+      scene: "normal",
+      width: 360,
+      height: 360,
+      uniq_key: "360",
+      format: "webp",
+    },
   ],
 };
 
@@ -50,14 +104,20 @@ function inferTaskType(task: any, fallback?: TaskType): TaskType {
 export async function getHistoryTaskById(
   taskId: string,
   refreshToken: string,
-  regionInfo: RegionInfo
+  regionInfo: RegionInfo,
 ): Promise<any> {
-  const result = await request("post", "/mweb/v1/get_history_by_ids", refreshToken, regionInfo, {
-    data: {
-      history_ids: [taskId],
-      image_info: IMAGE_INFO_PAYLOAD,
+  const result = await request(
+    "post",
+    "/mweb/v1/get_history_by_ids",
+    refreshToken,
+    regionInfo,
+    {
+      data: {
+        history_ids: [taskId],
+        image_info: IMAGE_INFO_PAYLOAD,
+      },
     },
-  });
+  );
   const task = result?.[taskId];
   if (!task) {
     throw new APIException(EX.API_REQUEST_FAILED, `任务不存在: ${taskId}`);
@@ -68,7 +128,7 @@ export async function getHistoryTaskById(
 async function buildTaskData(
   type: TaskType,
   task: any,
-  responseFormat: TaskResponseFormat
+  responseFormat: TaskResponseFormat,
 ): Promise<TaskResponseDataItem[] | null> {
   const itemList = Array.isArray(task?.item_list) ? task.item_list : [];
   if (itemList.length === 0) return null;
@@ -77,7 +137,9 @@ async function buildTaskData(
     const imageUrls = extractImageUrls(itemList);
     if (imageUrls.length === 0) return null;
     if (responseFormat === "b64_json") {
-      const encoded = await Promise.all(imageUrls.map((url) => util.fetchFileBASE64(url)));
+      const encoded = await Promise.all(
+        imageUrls.map((url) => util.fetchFileBASE64(url)),
+      );
       return encoded.map((b64) => ({ b64_json: b64 }));
     }
     return imageUrls.map((url) => ({ url }));
@@ -98,7 +160,7 @@ export async function getTaskResponse(
   options: {
     type?: TaskType;
     responseFormat?: TaskResponseFormat;
-  } = {}
+  } = {},
 ): Promise<TaskResponseShape> {
   const task = await getHistoryTaskById(taskId, refreshToken, regionInfo);
   const type = inferTaskType(task, options.type);
@@ -122,7 +184,7 @@ export async function waitForTaskResponse(
     responseFormat?: TaskResponseFormat;
     waitTimeoutSeconds?: number;
     pollIntervalMs?: number;
-  } = {}
+  } = {},
 ): Promise<TaskResponseShape> {
   const responseFormat = options.responseFormat || "url";
   const defaultTimeoutSeconds = options.type === "video" ? 3600 : 1800;
@@ -132,7 +194,7 @@ export async function waitForTaskResponse(
     options.pollIntervalMs,
     defaultTimeoutSeconds,
     defaultPollIntervalMs,
-    900
+    900,
   );
 
   const poller = new SmartPoller({
@@ -152,7 +214,8 @@ export async function waitForTaskResponse(
     return {
       status: {
         status: typeof task?.status === "number" ? task.status : 20,
-        failCode: typeof task?.fail_code === "string" ? task.fail_code : undefined,
+        failCode:
+          typeof task?.fail_code === "string" ? task.fail_code : undefined,
         itemCount,
         finishTime: task?.task?.finish_time || 0,
         historyId: taskId,
@@ -165,8 +228,12 @@ export async function waitForTaskResponse(
   return {
     task_id: taskId,
     type: finalType,
-    status: typeof taskData.task?.status === "number" ? taskData.task.status : 20,
-    fail_code: typeof taskData.task?.fail_code === "string" ? taskData.task.fail_code : null,
+    status:
+      typeof taskData.task?.status === "number" ? taskData.task.status : 20,
+    fail_code:
+      typeof taskData.task?.fail_code === "string"
+        ? taskData.task.fail_code
+        : null,
     created: util.unixTimestamp(),
     data: await buildTaskData(finalType, taskData.task, responseFormat),
   };
@@ -206,7 +273,7 @@ export interface AssetListResult {
 export async function getAssetList(
   refreshToken: string,
   regionInfo: RegionInfo,
-  options: AssetListOptions = {}
+  options: AssetListOptions = {},
 ): Promise<AssetListResult> {
   const count = options.count || 20;
   const typeFilter = options.type || "all";
@@ -221,28 +288,40 @@ export async function getAssetList(
     assetTypeList = [1, 2, 5, 6, 7, 8, 9, 10];
   }
 
-  const result = await request("post", "/mweb/v1/get_asset_list", refreshToken, regionInfo, {
-    data: {
-      count,
-      direction: 1,
-      mode: "workbench",
-      option: {
-        image_info: {
-          width: 480,
-          height: 480,
-          format: "webp",
-          image_scene_list: [
-            { scene: "loss", width: 480, height: 480, uniq_key: "480", format: "webp" },
-          ],
+  const result = await request(
+    "post",
+    "/mweb/v1/get_asset_list",
+    refreshToken,
+    regionInfo,
+    {
+      data: {
+        count,
+        direction: 1,
+        mode: "workbench",
+        option: {
+          image_info: {
+            width: 480,
+            height: 480,
+            format: "webp",
+            image_scene_list: [
+              {
+                scene: "loss",
+                width: 480,
+                height: 480,
+                uniq_key: "480",
+                format: "webp",
+              },
+            ],
+          },
+          order_by: 0,
+          only_favorited: options.onlyFavorited || false,
+          end_time_stamp: options.endTimeStamp || 0,
         },
-        order_by: 0,
-        only_favorited: options.onlyFavorited || false,
-        end_time_stamp: options.endTimeStamp || 0,
+        asset_type_list: assetTypeList,
+        workspace_id: 0,
       },
-      asset_type_list: assetTypeList,
-      workspace_id: 0,
     },
-  });
+  );
 
   const hasMore = result?.has_more || false;
   const nextOffset = result?.next_offset || 0;

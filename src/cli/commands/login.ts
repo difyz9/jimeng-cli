@@ -7,14 +7,17 @@ import minimist from "minimist";
 import {
   buildRegionInfo,
   getCredit,
-  type RegionCode
+  type RegionCode,
 } from "@/api/services/core.ts";
 import tokenPool from "@/core/runtime/session-pool.ts";
 
 type JsonRecord = Record<string, unknown>;
 
 type LoginDeps = {
-  getSingleString: (args: Record<string, unknown>, key: string) => string | undefined;
+  getSingleString: (
+    args: Record<string, unknown>,
+    key: string,
+  ) => string | undefined;
   getRegionWithDefault: (args: Record<string, unknown>) => string;
   parseRegionOrFail: (region: string | undefined) => RegionCode | undefined;
   ensureTokenPoolReady: () => Promise<void>;
@@ -26,7 +29,10 @@ type LoginDeps = {
 // import.meta.url is only available in ESM; LOGIN_SCRIPT is resolved from the bundled dist/ directory.
 const LOGIN_SCRIPT = path.join(
   path.dirname(new URL(import.meta.url).pathname),
-  "..", "..", "scripts", "jimeng_login_helper.py",
+  "..",
+  "..",
+  "scripts",
+  "jimeng_login_helper.py",
 );
 
 /**
@@ -36,7 +42,9 @@ const LOGIN_SCRIPT = path.join(
  * 2. Fall back to manual sessionid input
  * 3. Auto-add the token to the token pool
  */
-export function createLoginCommandHandler(deps: LoginDeps): (argv: string[]) => Promise<void> {
+export function createLoginCommandHandler(
+  deps: LoginDeps,
+): (argv: string[]) => Promise<void> {
   return async (argv: string[]): Promise<void> => {
     const args = minimist(argv, {
       string: ["region", "sessionid", "debug-port"],
@@ -64,24 +72,36 @@ export function createLoginCommandHandler(deps: LoginDeps): (argv: string[]) => 
     // Mode 2: Try Python login helper (CDP-based browser login)
     const pythonLoginResult = await tryPythonLogin(debugPort, headless);
     if (pythonLoginResult) {
-      await addSessionToPool(pythonLoginResult, parsedRegion || "cn", deps, isJson);
+      await addSessionToPool(
+        pythonLoginResult,
+        parsedRegion || "cn",
+        deps,
+        isJson,
+      );
       return;
     }
 
     // Mode 3: Fallback - manual sessionid input
     console.log("");
-    console.log("Auto login not available. Please provide your sessionid manually.");
+    console.log(
+      "Auto login not available. Please provide your sessionid manually.",
+    );
     console.log("You can get it from:");
     console.log("  1. Login at https://jimeng.jianying.com/ai-tool/home/");
     console.log("  2. Open DevTools > Application > Cookies > sessionid");
     console.log("");
-    console.log("Then run: jimeng login --sessionid <your_sessionid> --region cn");
+    console.log(
+      "Then run: jimeng login --sessionid <your_sessionid> --region cn",
+    );
     console.log("");
     console.log("Or install Python 3 to use the automatic browser login.");
   };
-};
+}
 
-async function tryPythonLogin(debugPort: string, headless: boolean): Promise<string | null> {
+async function tryPythonLogin(
+  debugPort: string,
+  headless: boolean,
+): Promise<string | null> {
   // Check if Python login script exists
   const loginScript = findLoginScript();
   if (!loginScript) {
@@ -126,7 +146,10 @@ function findLoginScript(): string | null {
 
   // Check if python3 can find it in PATH
   try {
-    const whichResult = execSync("which jimeng_login.py 2>/dev/null || echo ''", { encoding: "utf-8" }).trim();
+    const whichResult = execSync(
+      "which jimeng_login.py 2>/dev/null || echo ''",
+      { encoding: "utf-8" },
+    ).trim();
     if (whichResult) return whichResult;
   } catch {
     // ignore
@@ -139,7 +162,9 @@ function findLoginScript(): string | null {
   return null;
 }
 
-function runPythonScript(args: string[]): Promise<{ stdout: string; stderr: string }> {
+function runPythonScript(
+  args: string[],
+): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const pythonCmd = process.platform === "win32" ? "python" : "python3";
     const proc = spawn(pythonCmd, args, {
@@ -167,7 +192,11 @@ function runPythonScript(args: string[]): Promise<{ stdout: string; stderr: stri
       if (code === 0) {
         resolve({ stdout, stderr });
       } else {
-        reject(new Error(`Login script exited with code ${code}: ${stderr.slice(-200)}`));
+        reject(
+          new Error(
+            `Login script exited with code ${code}: ${stderr.slice(-200)}`,
+          ),
+        );
       }
     });
 
@@ -181,21 +210,27 @@ async function addSessionToPool(
   sessionid: string,
   region: RegionCode,
   deps: LoginDeps,
-  isJson: boolean
+  isJson: boolean,
 ): Promise<void> {
   await deps.ensureTokenPoolReady();
 
-  const { added, total } = await tokenPool.addTokens([sessionid], { defaultRegion: region });
+  const { added, total } = await tokenPool.addTokens([sessionid], {
+    defaultRegion: region,
+  });
 
   if (added > 0) {
-    const masked = sessionid.length > 10
-      ? `${sessionid.slice(0, 4)}...${sessionid.slice(-4)}`
-      : "***";
+    const masked =
+      sessionid.length > 10
+        ? `${sessionid.slice(0, 4)}...${sessionid.slice(-4)}`
+        : "***";
 
     // Try to verify the token by checking credits
     let creditInfo = "";
     try {
-      const { totalCredit } = await getCredit(sessionid, buildRegionInfo(region));
+      const { totalCredit } = await getCredit(
+        sessionid,
+        buildRegionInfo(region),
+      );
       creditInfo = ` (credits: ${totalCredit})`;
     } catch {
       creditInfo = " (credit check failed)";

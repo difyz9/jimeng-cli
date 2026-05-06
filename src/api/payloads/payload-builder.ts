@@ -1,5 +1,10 @@
 import util from "@/core/utils/util.ts";
-import { DRAFT_MIN_VERSION, DRAFT_VERSION, RESOLUTION_OPTIONS, RESOLUTION_OPTIONS_NANOBANANAPRO_4K } from "@/api/constants/common.ts";
+import {
+  DRAFT_MIN_VERSION,
+  DRAFT_VERSION,
+  RESOLUTION_OPTIONS,
+  RESOLUTION_OPTIONS_NANOBANANAPRO_4K,
+} from "@/api/constants/common.ts";
 import { RegionInfo, getAssistantId } from "@/api/services/core.ts";
 
 export type RegionKey = "CN" | "US" | "HK" | "JP" | "SG";
@@ -20,13 +25,21 @@ function getRegionKey(regionInfo: RegionInfo): RegionKey {
   return "CN";
 }
 
-function lookupResolution(resolution: string = "2k", ratio: string = "1:1", userModel?: string) {
+function lookupResolution(
+  resolution: string = "2k",
+  ratio: string = "1:1",
+  userModel?: string,
+) {
   // nanobananapro 模型使用 4k 时，使用专用配置
   if (userModel === "nanobananapro" && resolution === "4k") {
     const ratioConfig = RESOLUTION_OPTIONS_NANOBANANAPRO_4K[ratio];
     if (!ratioConfig) {
-      const supportedRatios = Object.keys(RESOLUTION_OPTIONS_NANOBANANAPRO_4K).join(", ");
-      throw new Error(`nanobananapro 模型在 4k 分辨率下，不支持的比例 "${ratio}"。支持的比例: ${supportedRatios}`);
+      const supportedRatios = Object.keys(
+        RESOLUTION_OPTIONS_NANOBANANAPRO_4K,
+      ).join(", ");
+      throw new Error(
+        `nanobananapro 模型在 4k 分辨率下，不支持的比例 "${ratio}"。支持的比例: ${supportedRatios}`,
+      );
     }
     return {
       width: ratioConfig.width,
@@ -39,13 +52,17 @@ function lookupResolution(resolution: string = "2k", ratio: string = "1:1", user
   const resolutionGroup = RESOLUTION_OPTIONS[resolution];
   if (!resolutionGroup) {
     const supportedResolutions = Object.keys(RESOLUTION_OPTIONS).join(", ");
-    throw new Error(`不支持的分辨率 "${resolution}"。支持的分辨率: ${supportedResolutions}`);
+    throw new Error(
+      `不支持的分辨率 "${resolution}"。支持的分辨率: ${supportedResolutions}`,
+    );
   }
 
   const ratioConfig = resolutionGroup[ratio];
   if (!ratioConfig) {
     const supportedRatios = Object.keys(resolutionGroup).join(", ");
-    throw new Error(`在 "${resolution}" 分辨率下，不支持的比例 "${ratio}"。支持的比例: ${supportedRatios}`);
+    throw new Error(
+      `在 "${resolution}" 分辨率下，不支持的比例 "${ratio}"。支持的比例: ${supportedRatios}`,
+    );
   }
 
   return {
@@ -67,15 +84,16 @@ export function resolveResolution(
   userModel: string,
   regionInfo: RegionInfo,
   resolution: string = "2k",
-  ratio: string = "1:1"
+  ratio: string = "1:1",
 ): ResolutionResult {
   const regionKey = getRegionKey(regionInfo);
 
   // ⚠️ 国内站不支持nano系列模型
-  if (regionKey === "CN" && (userModel === "nanobanana" || userModel === "nanobananapro")) {
-    throw new Error(
-      `国内站不支持${userModel}模型,请使用jimeng系列模型`
-    );
+  if (
+    regionKey === "CN" &&
+    (userModel === "nanobanana" || userModel === "nanobananapro")
+  ) {
+    throw new Error(`国内站不支持${userModel}模型,请使用jimeng系列模型`);
   }
 
   // ⚠️ nanobanana 模型的站点差异处理
@@ -118,7 +136,7 @@ export function resolveResolution(
 export function getBenefitCount(
   userModel: string,
   regionInfo: RegionInfo,
-  isMultiImage: boolean = false
+  isMultiImage: boolean = false,
 ): number | undefined {
   if (isMultiImage) return undefined;
 
@@ -128,10 +146,10 @@ export function getBenefitCount(
 export type GenerateMode = "text2img" | "img2img";
 
 export interface BuildCoreParamOptions {
-  userModel: string;  // 用户模型名（如 'jimeng-4.0', 'nanobanana'）
-  model: string;      // 映射后的内部模型名
+  userModel: string; // 用户模型名（如 'jimeng-4.0', 'nanobanana'）
+  model: string; // 映射后的内部模型名
   prompt: string;
-  imageCount?: number;  // 图生图时的图片数量，用于生成动态 ## 前缀
+  imageCount?: number; // 图生图时的图片数量，用于生成动态 ## 前缀
   negativePrompt?: string;
   seed?: number;
   sampleStrength: number;
@@ -161,11 +179,19 @@ export function buildCoreParam(options: BuildCoreParamOptions) {
   } = options;
 
   // ⚠️ intelligent_ratio 仅对 jimeng-4.0/jimeng-4.1/jimeng-4.5/jimeng-4.6/jimeng-5.0 模型有效
-  const effectiveIntelligentRatio = ['jimeng-4.0', 'jimeng-4.1', 'jimeng-4.5', 'jimeng-4.6', 'jimeng-5.0'].includes(userModel) ? intelligentRatio : false;
+  const effectiveIntelligentRatio = [
+    "jimeng-4.0",
+    "jimeng-4.1",
+    "jimeng-4.5",
+    "jimeng-4.6",
+    "jimeng-5.0",
+  ].includes(userModel)
+    ? intelligentRatio
+    : false;
 
   // 图生图时，prompt 前缀规则: 每张图片对应 2 个 #
   // 1张图 → ##, 2张图 → ####, 3张图 → ######
-  const promptPrefix = mode === "img2img" ? '#'.repeat(imageCount * 2) : '';
+  const promptPrefix = mode === "img2img" ? "#".repeat(imageCount * 2) : "";
 
   const coreParam: any = {
     type: "",
@@ -212,13 +238,13 @@ interface Ability {
   abilityName: string;
   strength: number;
   source?: {
-    imageUrl: string;  // 格式: blob:https://dreamina.capcut.com/[uuid]
+    imageUrl: string; // 格式: blob:https://dreamina.capcut.com/[uuid]
   };
 }
 
 export interface BuildMetricsExtraOptions {
   userModel: string;
-  model: string;       // 映射后的内部模型名 (如 high_aes_general_v50)
+  model: string; // 映射后的内部模型名 (如 high_aes_general_v50)
   regionInfo: RegionInfo;
   submitId: string;
   scene: SceneType;
@@ -288,7 +314,7 @@ export interface BuildDraftContentOptions {
   abilityList?: any[];
   promptPlaceholderInfoList?: any[];
   posteditParam?: any;
-  imageCount?: number;  // 图生图时的图片数量
+  imageCount?: number; // 图生图时的图片数量
 }
 
 export function buildDraftContent({
@@ -399,7 +425,10 @@ export function buildGenerateRequest({
   };
 }
 
-export function buildBlendAbilityList(uploadedImageIds: string[], strength: number): any[] {
+export function buildBlendAbilityList(
+  uploadedImageIds: string[],
+  strength: number,
+): any[] {
   return uploadedImageIds.map((imageId) => ({
     type: "",
     id: util.uuid(),

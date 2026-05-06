@@ -11,7 +11,7 @@ export function toStructuredContent(data: unknown): JsonObject {
 export function toToolResult(data: unknown) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-    structuredContent: toStructuredContent(data)
+    structuredContent: toStructuredContent(data),
   };
 }
 

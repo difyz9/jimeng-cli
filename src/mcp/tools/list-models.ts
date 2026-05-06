@@ -10,9 +10,9 @@ export function registerListModelsTool({ server, client }: ToolDeps): void {
       title: "List Models",
       description: "Get available models from jimeng-cli",
       inputSchema: listModelsInputSchema,
-      annotations: { readOnlyHint: true }
+      annotations: { readOnlyHint: true },
     },
     async ({ token, include_manual }) =>
-      client.listModels({ token, includeManual: include_manual })
+      client.listModels({ token, includeManual: include_manual }),
   );
 }

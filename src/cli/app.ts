@@ -3,14 +3,11 @@ import process from "node:process";
 import config from "@/core/config/config.ts";
 import logger from "@/core/utils/logger.ts";
 import tokenPool from "@/core/runtime/session-pool.ts";
-import {
-  parseRegionCode,
-  type RegionCode
-} from "@/api/services/core.ts";
+import { parseRegionCode, type RegionCode } from "@/api/services/core.ts";
 import {
   createTokenSubcommands,
   type TokenSubcommandDef,
-  type TokenSubcommandName
+  type TokenSubcommandName,
 } from "@/cli/commands/token.ts";
 import { createQueryCommandHandlers } from "@/cli/commands/query.ts";
 import { createMediaCommandHandlers } from "@/cli/commands/media.ts";
@@ -26,15 +23,9 @@ const HELP_OPTION = "  --help                   Show help";
 function buildUsageText(
   usageLine: string,
   options: string[],
-  sections?: UsageSection[]
+  sections?: UsageSection[],
 ): string {
-  const lines = [
-    "Usage:",
-    usageLine,
-    "",
-    "Options:",
-    ...options,
-  ];
+  const lines = ["Usage:", usageLine, "", "Options:", ...options];
   if (sections && sections.length > 0) {
     for (const section of sections) {
       lines.push("", section.title, ...section.lines);
@@ -45,7 +36,7 @@ function buildUsageText(
 
 function usageRoot(): string {
   const commandLines = ROOT_COMMAND_ENTRIES.map(
-    (entry) => `  ${entry.path.padEnd(32)}${entry.description}`
+    (entry) => `  ${entry.path.padEnd(32)}${entry.description}`,
   );
   return [
     "Usage:",
@@ -59,50 +50,59 @@ function usageRoot(): string {
 }
 
 function usageModelsList(): string {
-  return buildUsageText("  jimeng models list [options]", [
-    "  --token <token>          Query with specific token",
-    "  --region <region>        Query with specific region (cn/us/hk/jp/sg)",
-    "  --all                    Query all tokens in pool, grouped by token/region",
-    "  --all-known              Include manual/hidden models known locally",
-    "  --verbose                Print rich model fields",
-    "  --json                   Print full JSON response",
-    HELP_OPTION,
-  ], [
-    {
-      title: "Notes:",
-      lines: [
-        "  Without --token, --region, or --all, uses the first available token in pool.",
-        "  With --all, queries every enabled+live token and groups results by token/region.",
-        "  --all-known includes models that are mapped locally but not returned by upstream config.",
-      ],
-    },
-  ]);
+  return buildUsageText(
+    "  jimeng models list [options]",
+    [
+      "  --token <token>          Query with specific token",
+      "  --region <region>        Query with specific region (cn/us/hk/jp/sg)",
+      "  --all                    Query all tokens in pool, grouped by token/region",
+      "  --all-known              Include manual/hidden models known locally",
+      "  --verbose                Print rich model fields",
+      "  --json                   Print full JSON response",
+      HELP_OPTION,
+    ],
+    [
+      {
+        title: "Notes:",
+        lines: [
+          "  Without --token, --region, or --all, uses the first available token in pool.",
+          "  With --all, queries every enabled+live token and groups results by token/region.",
+          "  --all-known includes models that are mapped locally but not returned by upstream config.",
+        ],
+      },
+    ],
+  );
 }
 
 function usageModelsRefresh(): string {
-  return buildUsageText("  jimeng models refresh [options]", [
-    "  --json                   Output structured JSON",
-    HELP_OPTION,
-  ], [
-    {
-      title: "Notes:",
-      lines: [
-        "  - Refreshes dynamicCapabilities (imageModels, videoModels, capabilityTags) for",
-        "    all enabled+live tokens in the token pool.",
-        "  - Results are persisted to token-pool.json automatically.",
-      ],
-    },
-  ]);
+  return buildUsageText(
+    "  jimeng models refresh [options]",
+    ["  --json                   Output structured JSON", HELP_OPTION],
+    [
+      {
+        title: "Notes:",
+        lines: [
+          "  - Refreshes dynamicCapabilities (imageModels, videoModels, capabilityTags) for",
+          "    all enabled+live tokens in the token pool.",
+          "  - Results are persisted to token-pool.json automatically.",
+        ],
+      },
+    ],
+  );
 }
 
 function usageTokenSubcommand(name: TokenSubcommandName): string {
   const subcommand = TOKEN_SUBCOMMANDS_BY_NAME[name];
-  return buildUsageText(subcommand.usageLine, subcommand.options, subcommand.sections);
+  return buildUsageText(
+    subcommand.usageLine,
+    subcommand.options,
+    subcommand.sections,
+  );
 }
 
 function usageTokenRoot(): string {
   const subcommandLines = TOKEN_SUBCOMMANDS.map(
-    (subcommand) => `  ${subcommand.name.padEnd(24)}${subcommand.description}`
+    (subcommand) => `  ${subcommand.name.padEnd(24)}${subcommand.description}`,
   );
   return [
     "Usage:",
@@ -139,29 +139,31 @@ function usageImageEdit(): string {
   return buildUsageText(
     "  jimeng image edit --prompt <text> --image <path_or_url> [--image <path_or_url> ...] [options]",
     [
-    "  --token <token>          Optional, override token-pool selection",
-    "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
-    "  --prompt <text>          Required",
-    "  --image <path_or_url>    Required, can be repeated (1-10)",
-    "  --model <model>          Default jimeng-4.5",
-    "  --ratio <ratio>          Default 1:1",
-    "  --resolution <res>       Default 2k",
-    "  --negative-prompt <text> Optional",
-    "  --sample-strength <num>  Optional, 0-1",
-    "  --intelligent-ratio      Optional, enable intelligent ratio",
-    "  --wait / --no-wait       Default wait; --no-wait returns task only",
-    "  --wait-timeout-seconds   Optional wait timeout override",
-    "  --poll-interval-ms       Optional poll interval override",
-    JSON_OPTION,
-    "  --output-dir <dir>       Default ./pic/cli-image-edit",
-    HELP_OPTION,
+      "  --token <token>          Optional, override token-pool selection",
+      "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
+      "  --prompt <text>          Required",
+      "  --image <path_or_url>    Required, can be repeated (1-10)",
+      "  --model <model>          Default jimeng-4.5",
+      "  --ratio <ratio>          Default 1:1",
+      "  --resolution <res>       Default 2k",
+      "  --negative-prompt <text> Optional",
+      "  --sample-strength <num>  Optional, 0-1",
+      "  --intelligent-ratio      Optional, enable intelligent ratio",
+      "  --wait / --no-wait       Default wait; --no-wait returns task only",
+      "  --wait-timeout-seconds   Optional wait timeout override",
+      "  --poll-interval-ms       Optional poll interval override",
+      JSON_OPTION,
+      "  --output-dir <dir>       Default ./pic/cli-image-edit",
+      HELP_OPTION,
     ],
     [
       {
         title: "Notes:",
-        lines: ["  - Image sources must be all local files or all URLs in one command."],
+        lines: [
+          "  - Image sources must be all local files or all URLs in one command.",
+        ],
       },
-    ]
+    ],
   );
 }
 
@@ -169,17 +171,17 @@ function usageImageUpscale(): string {
   return buildUsageText(
     "  jimeng image upscale --image <path_or_url> [options]",
     [
-    "  --token <token>          Optional, override token-pool selection",
-    "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
-    "  --image <path_or_url>    Required, local file or URL",
-    "  --model <model>          Default jimeng-5.0",
-    "  --resolution <res>       Default 4k (target resolution)",
-    "  --wait / --no-wait       Default wait; --no-wait returns task only",
-    "  --wait-timeout-seconds   Optional wait timeout override",
-    "  --poll-interval-ms       Optional poll interval override",
-    JSON_OPTION,
-    "  --output-dir <dir>       Default ./pic/cli-image-upscale",
-    HELP_OPTION,
+      "  --token <token>          Optional, override token-pool selection",
+      "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
+      "  --image <path_or_url>    Required, local file or URL",
+      "  --model <model>          Default jimeng-5.0",
+      "  --resolution <res>       Default 4k (target resolution)",
+      "  --wait / --no-wait       Default wait; --no-wait returns task only",
+      "  --wait-timeout-seconds   Optional wait timeout override",
+      "  --poll-interval-ms       Optional poll interval override",
+      JSON_OPTION,
+      "  --output-dir <dir>       Default ./pic/cli-image-upscale",
+      HELP_OPTION,
     ],
     [
       {
@@ -190,54 +192,58 @@ function usageImageUpscale(): string {
           "  - Image source can be a local file path or HTTP URL.",
         ],
       },
-    ]
+    ],
   );
 }
 
 function usageVideoGenerate(): string {
-  return buildUsageText("  jimeng video generate --prompt <text> [options]", [
-    "  --token <token>          Optional, override token-pool selection",
-    "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
-    "  --prompt <text>          Required",
-    "  --mode <mode>            Optional, text_to_video (default), image_to_video, first_last_frames, or omni_reference",
-    "  --image-file <input>     Image input, can be repeated (path or URL)",
-    "  --video-file <input>     Video input, can be repeated (path or URL, omni only)",
-    "  --image-file-1 <input>   Explicit image slot (1-9) for omni_reference",
-    "  --image-file-2 ... -9    More explicit image slots for omni_reference",
-    "  --video-file-1 <input>   Explicit video slot (1-3) for omni_reference",
-    "  --video-file-2 ... -3    More explicit video slots for omni_reference",
-    "  --model <model>          Default jimeng-video-3.0 (jimeng-video-seedance-2.0-fast in omni_reference)",
-    "  --ratio <ratio>          Default 1:1",
-    "  --resolution <res>       Default 720p",
-    "  --duration <seconds>     Default 5",
-    "  --wait / --no-wait       Default wait; --no-wait returns task only",
-    "  --wait-timeout-seconds   Optional wait timeout override",
-    "  --poll-interval-ms       Optional poll interval override",
-    JSON_OPTION,
-    "  --output-dir <dir>       Default ./pic/cli-video-generate",
-    HELP_OPTION,
-  ], [
-    {
-      title: "Examples:",
-      lines: [
-        "  jimeng video generate --mode text_to_video --prompt \"A fox runs in snow\"",
-        "  jimeng video generate --mode image_to_video --prompt \"Camera slowly pushes in\" --image-file ./first.png",
-        "  jimeng video generate --mode first_last_frames --prompt \"Transition day to night\" --image-file ./first.png --image-file ./last.png",
-        "  jimeng video generate --mode omni_reference --model jimeng-video-seedance-2.0-fast --prompt \"Use @image_file_1 for character and @video_file_1 for motion\" --image-file ./character.png --video-file ./motion.mp4",
-      ],
-    },
-    {
-      title: "Notes:",
-      lines: [
-        "  - text_to_video: no image/video input allowed.",
-        "  - image_to_video: exactly 1 --image-file input, no --video-file.",
-        "  - first_last_frames: 1-2 --image-file inputs, no --video-file.",
-        "  - omni_reference: 1-9 images and 0-3 videos (at least one material).",
-        "  - omni_reference supports model jimeng-video-seedance-2.0 or jimeng-video-seedance-2.0-fast.",
-        "  - Use @image_file_N / @video_file_N in prompt for omni_reference.",
-      ],
-    },
-  ]);
+  return buildUsageText(
+    "  jimeng video generate --prompt <text> [options]",
+    [
+      "  --token <token>          Optional, override token-pool selection",
+      "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
+      "  --prompt <text>          Required",
+      "  --mode <mode>            Optional, text_to_video (default), image_to_video, first_last_frames, or omni_reference",
+      "  --image-file <input>     Image input, can be repeated (path or URL)",
+      "  --video-file <input>     Video input, can be repeated (path or URL, omni only)",
+      "  --image-file-1 <input>   Explicit image slot (1-9) for omni_reference",
+      "  --image-file-2 ... -9    More explicit image slots for omni_reference",
+      "  --video-file-1 <input>   Explicit video slot (1-3) for omni_reference",
+      "  --video-file-2 ... -3    More explicit video slots for omni_reference",
+      "  --model <model>          Default jimeng-video-3.0 (jimeng-video-seedance-2.0-fast in omni_reference)",
+      "  --ratio <ratio>          Default 1:1",
+      "  --resolution <res>       Default 720p",
+      "  --duration <seconds>     Default 5",
+      "  --wait / --no-wait       Default wait; --no-wait returns task only",
+      "  --wait-timeout-seconds   Optional wait timeout override",
+      "  --poll-interval-ms       Optional poll interval override",
+      JSON_OPTION,
+      "  --output-dir <dir>       Default ./pic/cli-video-generate",
+      HELP_OPTION,
+    ],
+    [
+      {
+        title: "Examples:",
+        lines: [
+          '  jimeng video generate --mode text_to_video --prompt "A fox runs in snow"',
+          '  jimeng video generate --mode image_to_video --prompt "Camera slowly pushes in" --image-file ./first.png',
+          '  jimeng video generate --mode first_last_frames --prompt "Transition day to night" --image-file ./first.png --image-file ./last.png',
+          '  jimeng video generate --mode omni_reference --model jimeng-video-seedance-2.0-fast --prompt "Use @image_file_1 for character and @video_file_1 for motion" --image-file ./character.png --video-file ./motion.mp4',
+        ],
+      },
+      {
+        title: "Notes:",
+        lines: [
+          "  - text_to_video: no image/video input allowed.",
+          "  - image_to_video: exactly 1 --image-file input, no --video-file.",
+          "  - first_last_frames: 1-2 --image-file inputs, no --video-file.",
+          "  - omni_reference: 1-9 images and 0-3 videos (at least one material).",
+          "  - omni_reference supports model jimeng-video-seedance-2.0 or jimeng-video-seedance-2.0-fast.",
+          "  - Use @image_file_N / @video_file_N in prompt for omni_reference.",
+        ],
+      },
+    ],
+  );
 }
 
 function usageTaskGet(): string {
@@ -303,7 +309,10 @@ function failWithUsage(reason: string, usage: string): never {
   fail(`${reason}\n\n${usage}`);
 }
 
-function getSingleString(args: Record<string, unknown>, key: string): string | undefined {
+function getSingleString(
+  args: Record<string, unknown>,
+  key: string,
+): string | undefined {
   const raw = args[key];
   if (typeof raw === "string" && raw.trim().length > 0) return raw.trim();
   return undefined;
@@ -314,7 +323,11 @@ function getRegionWithDefault(args: Record<string, unknown>): string {
 }
 
 function toStringList(raw: unknown): string[] {
-  if (typeof raw === "string") return raw.split(",").map((item) => item.trim()).filter(Boolean);
+  if (typeof raw === "string")
+    return raw
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
   if (Array.isArray(raw)) {
     return raw
       .flatMap((item) => (typeof item === "string" ? item.split(",") : []))
@@ -343,7 +356,7 @@ async function pickDirectTokenForGeneration(
   region: string | undefined,
   requestedModel: string,
   taskType: "image" | "video",
-  requiredCapabilityTags: string[] = []
+  requiredCapabilityTags: string[] = [],
 ): Promise<{ token: string; region: RegionCode }> {
   await ensureTokenPoolReady();
   const tokenPick = tokenPool.pickTokenForRequest({
@@ -354,14 +367,17 @@ async function pickDirectTokenForGeneration(
     xRegion: region,
   });
   if (!tokenPick.token || !tokenPick.region) {
-    fail(tokenPick.reason || "No direct token available. Provide --token and --region, or configure token-pool.");
+    fail(
+      tokenPick.reason ||
+        "No direct token available. Provide --token and --region, or configure token-pool.",
+    );
   }
   return { token: tokenPick.token, region: tokenPick.region };
 }
 
 async function pickDirectTokenForTask(
   token: string | undefined,
-  region: string | undefined
+  region: string | undefined,
 ): Promise<{ token: string; region: RegionCode }> {
   await ensureTokenPoolReady();
   const parsedRegion = parseRegionOrFail(region);
@@ -370,7 +386,9 @@ async function pickDirectTokenForTask(
     const fromPool = tokenPool.getTokenEntry(token)?.region;
     const finalRegion = parsedRegion || fromPool;
     if (!finalRegion) {
-      fail("Missing region for direct task mode. Provide --region or register token region in token-pool.");
+      fail(
+        "Missing region for direct task mode. Provide --region or register token region in token-pool.",
+      );
     }
     return { token, region: finalRegion };
   }
@@ -380,7 +398,9 @@ async function pickDirectTokenForTask(
     .filter((item) => item.enabled && item.live !== false && item.region)
     .filter((item) => (parsedRegion ? item.region === parsedRegion : true));
   if (candidates.length === 0) {
-    fail("No token available for direct task mode. Provide --token --region or configure token-pool.");
+    fail(
+      "No token available for direct task mode. Provide --token --region or configure token-pool.",
+    );
   }
   return { token: candidates[0].token, region: candidates[0].region! };
 }
@@ -401,7 +421,7 @@ function printJson(value: unknown): void {
 function printCommandJson(
   command: string,
   data: unknown,
-  meta?: JsonRecord
+  meta?: JsonRecord,
 ): void {
   const payload: JsonRecord = {
     object: "jimeng_cli_result",
@@ -474,14 +494,19 @@ const mediaHandlers = createMediaCommandHandlers({
   printTaskInfo: (task) => queryHandlers.printTaskInfo(task),
 });
 
-const TOKEN_SUBCOMMANDS_BY_NAME: Record<TokenSubcommandName, TokenSubcommandDef> = Object.fromEntries(
-  TOKEN_SUBCOMMANDS.map((subcommand) => [subcommand.name, subcommand])
+const TOKEN_SUBCOMMANDS_BY_NAME: Record<
+  TokenSubcommandName,
+  TokenSubcommandDef
+> = Object.fromEntries(
+  TOKEN_SUBCOMMANDS.map((subcommand) => [subcommand.name, subcommand]),
 ) as Record<TokenSubcommandName, TokenSubcommandDef>;
 
 function buildHandlersMap(
-  subcommands: Array<{ name: string; handler: CliHandler }>
+  subcommands: Array<{ name: string; handler: CliHandler }>,
 ): Record<string, CliHandler> {
-  return Object.fromEntries(subcommands.map((item) => [item.name, item.handler]));
+  return Object.fromEntries(
+    subcommands.map((item) => [item.name, item.handler]),
+  );
 }
 
 type CommandSubcommandDef = {
@@ -517,8 +542,16 @@ const COMMAND_SPECS: CommandSpec[] = [
     name: "models",
     description: "Model commands",
     subcommands: [
-      { name: "list", description: "List available models", handler: queryHandlers.handleModelsList },
-      { name: "refresh", description: "Refresh token dynamic capabilities (model list)", handler: queryHandlers.handleModelsRefresh },
+      {
+        name: "list",
+        description: "List available models",
+        handler: queryHandlers.handleModelsList,
+      },
+      {
+        name: "refresh",
+        description: "Refresh token dynamic capabilities (model list)",
+        handler: queryHandlers.handleModelsRefresh,
+      },
     ],
     usage: usageRoot,
   },
@@ -526,9 +559,21 @@ const COMMAND_SPECS: CommandSpec[] = [
     name: "image",
     description: "Image commands",
     subcommands: [
-      { name: "generate", description: "Generate image from text", handler: mediaHandlers.handleImageGenerate },
-      { name: "edit", description: "Edit image(s) with prompt", handler: mediaHandlers.handleImageEdit },
-      { name: "upscale", description: "Upscale image to higher resolution", handler: mediaHandlers.handleImageUpscale },
+      {
+        name: "generate",
+        description: "Generate image from text",
+        handler: mediaHandlers.handleImageGenerate,
+      },
+      {
+        name: "edit",
+        description: "Edit image(s) with prompt",
+        handler: mediaHandlers.handleImageEdit,
+      },
+      {
+        name: "upscale",
+        description: "Upscale image to higher resolution",
+        handler: mediaHandlers.handleImageUpscale,
+      },
     ],
     usage: usageRoot,
   },
@@ -548,9 +593,21 @@ const COMMAND_SPECS: CommandSpec[] = [
     name: "task",
     description: "Task commands",
     subcommands: [
-      { name: "get", description: "Get task status", handler: queryHandlers.handleTaskGet },
-      { name: "wait", description: "Wait until task completion", handler: queryHandlers.handleTaskWait },
-      { name: "list", description: "List task history", handler: queryHandlers.handleTaskList },
+      {
+        name: "get",
+        description: "Get task status",
+        handler: queryHandlers.handleTaskGet,
+      },
+      {
+        name: "wait",
+        description: "Wait until task completion",
+        handler: queryHandlers.handleTaskWait,
+      },
+      {
+        name: "list",
+        description: "List task history",
+        handler: queryHandlers.handleTaskList,
+      },
     ],
     usage: usageRoot,
   },
@@ -568,30 +625,34 @@ const COMMAND_SPECS: CommandSpec[] = [
 ];
 
 const COMMAND_SPECS_BY_NAME: Record<string, CommandSpec> = Object.fromEntries(
-  COMMAND_SPECS.map((spec) => [spec.name, spec])
+  COMMAND_SPECS.map((spec) => [spec.name, spec]),
 );
 
-const ROOT_COMMAND_ENTRIES: Array<{ path: string; description: string }> = COMMAND_SPECS.flatMap((spec) => {
-  if (spec.handler) {
-    return [{ path: spec.name, description: spec.description }];
-  }
-  if (!spec.subcommands || spec.subcommands.length === 0) {
-    return [{ path: spec.name, description: spec.description }];
-  }
-  if (spec.showAsGrouped) {
-    return [{ path: `${spec.name} <subcommand>`, description: spec.description }];
-  }
-  return spec.subcommands.map((subcommand) => ({
-    path: `${spec.name} ${subcommand.name}`,
-    description: subcommand.description,
-  }));
-});
+const ROOT_COMMAND_ENTRIES: Array<{ path: string; description: string }> =
+  COMMAND_SPECS.flatMap((spec) => {
+    if (spec.handler) {
+      return [{ path: spec.name, description: spec.description }];
+    }
+    if (!spec.subcommands || spec.subcommands.length === 0) {
+      return [{ path: spec.name, description: spec.description }];
+    }
+    if (spec.showAsGrouped) {
+      return [
+        { path: `${spec.name} <subcommand>`, description: spec.description },
+      ];
+    }
+    return spec.subcommands.map((subcommand) => ({
+      path: `${spec.name} ${subcommand.name}`,
+      description: subcommand.description,
+    }));
+  });
 
 const ROOT_HELP_HINT_LINES: string[] = [
   "Run `jimeng <command> --help` for command details.",
-  ...COMMAND_SPECS
-    .filter((spec) => spec.showAsGrouped)
-    .map((spec) => `Run \`jimeng ${spec.name} --help\` for ${spec.name} subcommands.`),
+  ...COMMAND_SPECS.filter((spec) => spec.showAsGrouped).map(
+    (spec) =>
+      `Run \`jimeng ${spec.name} --help\` for ${spec.name} subcommands.`,
+  ),
 ];
 
 async function dispatchSubcommand(
@@ -599,7 +660,7 @@ async function dispatchSubcommand(
   argv: string[],
   handlers: Record<string, CliHandler>,
   usage: string,
-  unknownLabel: string
+  unknownLabel: string,
 ): Promise<boolean> {
   if (!subcommand || isHelpKeyword(subcommand)) {
     console.log(usage);
@@ -623,7 +684,10 @@ async function run(): Promise<void> {
   }
   const spec = COMMAND_SPECS_BY_NAME[command];
   if (!spec) {
-    failWithUsage(`Unknown command: ${[command, subcommand].filter(Boolean).join(" ")}`, usageRoot());
+    failWithUsage(
+      `Unknown command: ${[command, subcommand].filter(Boolean).join(" ")}`,
+      usageRoot(),
+    );
   }
 
   if (spec.handler) {
@@ -639,14 +703,17 @@ async function run(): Promise<void> {
         process.argv.slice(3),
         handlers,
         spec.usage ? spec.usage() : usageRoot(),
-        `${command} subcommand`
+        `${command} subcommand`,
       )
     ) {
       return;
     }
   }
 
-  failWithUsage(`Unknown command: ${[command, subcommand].filter(Boolean).join(" ")}`, usageRoot());
+  failWithUsage(
+    `Unknown command: ${[command, subcommand].filter(Boolean).join(" ")}`,
+    usageRoot(),
+  );
 }
 
 export function runCli(): void {

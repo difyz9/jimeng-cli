@@ -8,7 +8,7 @@ import { registerMcpTools } from "./tools/index.ts";
 export function createJimengMcpServer(config: McpConfig): McpServer {
   const server = new McpServer({
     name: "jimeng-cli-mcp",
-    version: environment.package.version || "1.0.0"
+    version: environment.package.version || "1.0.0",
   });
 
   const client = new JimengApiClient(config);

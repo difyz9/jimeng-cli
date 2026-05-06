@@ -19,7 +19,9 @@ import {
   RegionCode,
   request,
 } from "@/api/services/core.ts";
-import tokenPool, { type DynamicCapabilitiesRefreshResult } from "@/core/runtime/session-pool.ts";
+import tokenPool, {
+  type DynamicCapabilitiesRefreshResult,
+} from "@/core/runtime/session-pool.ts";
 
 export type ModelParams = Record<string, string[] | number[]>;
 
@@ -52,7 +54,8 @@ function mapVideoDescription(id: string): string | undefined {
   if (id.includes("veo3.1")) return "即梦AI视频生成模型 veo3.1";
   if (id.includes("veo3")) return "即梦AI视频生成模型 veo3";
   if (id.includes("sora2")) return "即梦AI视频生成模型 sora2";
-  if (id.includes("seedance-2.0-fast")) return "即梦AI视频生成模型 seedance 2.0-fast";
+  if (id.includes("seedance-2.0-fast"))
+    return "即梦AI视频生成模型 seedance 2.0-fast";
   if (id.includes("seedance-2.0")) return "即梦AI视频生成模型 seedance 2.0";
   if (id.includes("3.5-pro")) return "即梦AI视频生成模型 3.5 专业版";
   if (id.includes("3.0-fast")) return "即梦AI视频生成模型 3.0 极速版";
@@ -85,9 +88,11 @@ type UpstreamModelMeta = {
 function buildModelItem(
   modelId: string,
   meta?: UpstreamModelMeta,
-  availability: ModelAvailability = "discoverable"
+  availability: ModelAvailability = "discoverable",
 ): ModelItem {
-  const modelType: "image" | "video" = modelId.startsWith("jimeng-video-") ? "video" : "image";
+  const modelType: "image" | "video" = modelId.startsWith("jimeng-video-")
+    ? "video"
+    : "image";
   const item: ModelItem = {
     id: modelId,
     object: "model",
@@ -97,8 +102,10 @@ function buildModelItem(
   };
   if (meta?.reqKey) item.model_req_key = meta.reqKey;
   if (meta?.modelName) item.model_name = meta.modelName;
-  if (meta?.capabilities?.length) item.capabilities = Array.from(new Set(meta.capabilities)).sort();
-  if (meta?.params && Object.keys(meta.params).length > 0) item.params = meta.params;
+  if (meta?.capabilities?.length)
+    item.capabilities = Array.from(new Set(meta.capabilities)).sort();
+  if (meta?.params && Object.keys(meta.params).length > 0)
+    item.params = meta.params;
   if (availability === "manual") {
     item.hidden = true;
     const entitlements = getModelRequiredEntitlements(modelId);
@@ -126,15 +133,26 @@ function parseFirstToken(authorization?: string): string | undefined {
 function resolveToken(authorization?: string): string | undefined {
   const fromAuth = parseFirstToken(authorization);
   if (fromAuth) return fromAuth;
-  const fromPool = tokenPool.getAllTokens({ onlyEnabled: true, preferLive: true })[0];
+  const fromPool = tokenPool.getAllTokens({
+    onlyEnabled: true,
+    preferLive: true,
+  })[0];
   return fromPool || undefined;
 }
 
 export function getRegionalMaps(region: RegionCode): Record<string, string>[] {
   if (region === "us") return [IMAGE_MODEL_MAP_US, VIDEO_MODEL_MAP_US];
-  if (region === "hk" || region === "jp" || region === "sg") return [IMAGE_MODEL_MAP_ASIA, VIDEO_MODEL_MAP_ASIA];
+  if (region === "hk" || region === "jp" || region === "sg")
+    return [IMAGE_MODEL_MAP_ASIA, VIDEO_MODEL_MAP_ASIA];
   if (region === "cn") return [IMAGE_MODEL_MAP, VIDEO_MODEL_MAP];
-  return [IMAGE_MODEL_MAP, IMAGE_MODEL_MAP_US, IMAGE_MODEL_MAP_ASIA, VIDEO_MODEL_MAP, VIDEO_MODEL_MAP_US, VIDEO_MODEL_MAP_ASIA];
+  return [
+    IMAGE_MODEL_MAP,
+    IMAGE_MODEL_MAP_US,
+    IMAGE_MODEL_MAP_ASIA,
+    VIDEO_MODEL_MAP,
+    VIDEO_MODEL_MAP_US,
+    VIDEO_MODEL_MAP_ASIA,
+  ];
 }
 
 function resolveRegion(authorization?: string, xRegion?: string): RegionCode {
@@ -146,7 +164,9 @@ function resolveRegion(authorization?: string, xRegion?: string): RegionCode {
     const normalizedToken = parseProxyFromToken(token).token;
     const poolRegion = tokenPool.getTokenEntry(normalizedToken)?.region;
     if (poolRegion) return poolRegion;
-    throw new Error("缺少 region。token 未在 pool 中注册时，/v1/models 需要提供请求头 X-Region");
+    throw new Error(
+      "缺少 region。token 未在 pool 中注册时，/v1/models 需要提供请求头 X-Region",
+    );
   }
   return "cn";
 }
@@ -168,14 +188,21 @@ export function buildReverseMap(region: RegionCode): Record<string, string> {
 
 function buildFallbackModels(region: RegionCode): ModelItem[] {
   const maps = getRegionalMaps(region);
-  const modelIds = Array.from(new Set(maps.flatMap((item) => Object.keys(item)))).sort();
+  const modelIds = Array.from(
+    new Set(maps.flatMap((item) => Object.keys(item))),
+  ).sort();
   return modelIds
     .filter((id) => !isManualOnlyModel(id, region as SupportedRegionCode))
     .map((id) => buildModelItem(id));
 }
 
-function appendManualModels(region: RegionCode, items: ModelItem[]): ModelItem[] {
-  const manualModels = getManualOnlyModelsForRegion(region as SupportedRegionCode);
+function appendManualModels(
+  region: RegionCode,
+  items: ModelItem[],
+): ModelItem[] {
+  const manualModels = getManualOnlyModelsForRegion(
+    region as SupportedRegionCode,
+  );
   if (manualModels.length === 0) return items;
 
   const existingIds = new Set(items.map((item) => item.id));
@@ -198,18 +225,25 @@ function resolveFetchToken(token: string | undefined): string {
   return normalizedToken;
 }
 
-function extractValidOptions(item: Record<string, unknown>): Array<Record<string, unknown>> {
-  return (Array.isArray(item.options) ? item.options : [])
-    .filter((opt): opt is Record<string, unknown> =>
-      !!opt && typeof opt === "object" && typeof opt.key === "string" && opt.key.length > 0
-    );
+function extractValidOptions(
+  item: Record<string, unknown>,
+): Array<Record<string, unknown>> {
+  return (Array.isArray(item.options) ? item.options : []).filter(
+    (opt): opt is Record<string, unknown> =>
+      !!opt &&
+      typeof opt === "object" &&
+      typeof opt.key === "string" &&
+      opt.key.length > 0,
+  );
 }
 
 function extractCapabilities(item: Record<string, unknown>): string[] {
   const features = Array.isArray(item.feats)
-    ? item.feats.filter((f): f is string => typeof f === "string" && f.length > 0)
+    ? item.feats.filter(
+        (f): f is string => typeof f === "string" && f.length > 0,
+      )
     : [];
-  const optionKeys = extractValidOptions(item).map(o => o.key as string);
+  const optionKeys = extractValidOptions(item).map((o) => o.key as string);
   return Array.from(new Set([...features, ...optionKeys]));
 }
 
@@ -236,12 +270,15 @@ function extractEnumParams(item: Record<string, unknown>): ModelParams {
   return params;
 }
 
-function toUpstreamMeta(item: Record<string, unknown>): UpstreamModelMeta | undefined {
+function toUpstreamMeta(
+  item: Record<string, unknown>,
+): UpstreamModelMeta | undefined {
   const reqKey = item?.model_req_key;
   if (typeof reqKey !== "string" || reqKey.length === 0) return undefined;
   return {
     reqKey,
-    modelName: typeof item?.model_name === "string" ? item.model_name : undefined,
+    modelName:
+      typeof item?.model_name === "string" ? item.model_name : undefined,
     modelTip: typeof item?.model_tip === "string" ? item.model_tip : undefined,
     capabilities: extractCapabilities(item),
     params: extractEnumParams(item),
@@ -250,17 +287,26 @@ function toUpstreamMeta(item: Record<string, unknown>): UpstreamModelMeta | unde
 
 export async function fetchConfigModelReqKeys(
   token: string,
-  region: RegionCode
-): Promise<{ imageModels: UpstreamModelMeta[]; videoModels: UpstreamModelMeta[] }> {
+  region: RegionCode,
+): Promise<{
+  imageModels: UpstreamModelMeta[];
+  videoModels: UpstreamModelMeta[];
+}> {
   const regionInfo = buildRegionInfo(region);
   const [imageConfig, videoConfig] = await Promise.all([
     request("post", "/mweb/v1/get_common_config", token, regionInfo, {
       data: {},
       params: { needCache: true, needRefresh: false },
     }),
-    request("post", "/mweb/v1/video_generate/get_common_config", token, regionInfo, {
-      data: { scene: "generate_video", params: {} },
-    }),
+    request(
+      "post",
+      "/mweb/v1/video_generate/get_common_config",
+      token,
+      regionInfo,
+      {
+        data: { scene: "generate_video", params: {} },
+      },
+    ),
   ]);
 
   const toList = (config: Record<string, unknown> | undefined) =>
@@ -276,7 +322,7 @@ export async function fetchConfigModelReqKeys(
 export async function getLiveModels(
   authorization?: string,
   xRegion?: string,
-  options: { includeManual?: boolean } = {}
+  options: { includeManual?: boolean } = {},
 ): Promise<{ source: "upstream" | "fallback"; data: ModelItem[] }> {
   const region = resolveRegion(authorization, xRegion);
   const token = resolveToken(authorization);
@@ -286,13 +332,18 @@ export async function getLiveModels(
   if (cached && cached.expiresAt > Date.now()) {
     return {
       source: cached.source,
-      data: options.includeManual ? appendManualModels(region, cached.data) : cached.data,
+      data: options.includeManual
+        ? appendManualModels(region, cached.data)
+        : cached.data,
     };
   }
 
   try {
     const reverseMap = buildReverseMap(region);
-    const { imageModels, videoModels } = await fetchConfigModelReqKeys(effectiveToken, region);
+    const { imageModels, videoModels } = await fetchConfigModelReqKeys(
+      effectiveToken,
+      region,
+    );
     const upstreamModels = [...imageModels, ...videoModels];
     const metaByModelId = new Map<string, UpstreamModelMeta>();
     const mapped = upstreamModels
@@ -303,13 +354,19 @@ export async function getLiveModels(
         }
         return modelId;
       })
-      .filter((item): item is string => typeof item === "string" && item.length > 0);
+      .filter(
+        (item): item is string => typeof item === "string" && item.length > 0,
+      );
     const modelIds = Array.from(new Set(mapped)).sort();
     if (modelIds.length === 0) {
-      throw new Error("model_req_key resolved but none matched local reverse map");
+      throw new Error(
+        "model_req_key resolved but none matched local reverse map",
+      );
     }
 
-    const data = modelIds.map((id) => buildModelItem(id, metaByModelId.get(id)));
+    const data = modelIds.map((id) =>
+      buildModelItem(id, metaByModelId.get(id)),
+    );
 
     modelCache.set(cacheKey, {
       expiresAt: Date.now() + CACHE_TTL_MS,
@@ -336,6 +393,8 @@ export async function getLiveModels(
   }
 }
 
-export async function refreshAllTokenModels(): Promise<DynamicCapabilitiesRefreshResult[]> {
+export async function refreshAllTokenModels(): Promise<
+  DynamicCapabilitiesRefreshResult[]
+> {
   return tokenPool.refreshAllDynamicCapabilities();
 }

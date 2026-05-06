@@ -14,7 +14,7 @@ export function registerSafeTool<TSchema extends z.ZodTypeAny>(
   server: McpServer,
   name: string,
   options: RegisterToolOptions<TSchema>,
-  handler: (args: z.infer<TSchema>) => Promise<unknown>
+  handler: (args: z.infer<TSchema>) => Promise<unknown>,
 ): void {
   const { title, description, inputSchema, annotations } = options;
 
@@ -24,13 +24,13 @@ export function registerSafeTool<TSchema extends z.ZodTypeAny>(
       title,
       description,
       inputSchema,
-      ...(annotations ? { annotations } : {})
+      ...(annotations ? { annotations } : {}),
     },
     (async (args: Record<string, unknown>) =>
       withToolError(async () => {
         const parsedArgs = inputSchema.parse(args) as z.infer<TSchema>;
         const result = await handler(parsedArgs);
         return toToolResult(result);
-      })) as any
+      })) as any,
   );
 }

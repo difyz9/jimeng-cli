@@ -3,10 +3,21 @@ import path from "node:path";
 
 import { DEFAULT_IMAGE_MODEL } from "@/api/constants/common.ts";
 import { buildRegionInfo, type RegionCode } from "@/api/services/core.ts";
-import { generateImageComposition, generateImages, upscaleImage } from "@/api/services/images.ts";
+import {
+  generateImageComposition,
+  generateImages,
+  upscaleImage,
+} from "@/api/services/images.ts";
 import { getLiveModels } from "@/api/services/models.ts";
-import { getTaskResponse, waitForTaskResponse, getAssetList } from "@/api/services/tasks.ts";
-import { DEFAULT_MODEL as DEFAULT_VIDEO_MODEL, generateVideo } from "@/api/services/videos.ts";
+import {
+  getTaskResponse,
+  waitForTaskResponse,
+  getAssetList,
+} from "@/api/services/tasks.ts";
+import {
+  DEFAULT_MODEL as DEFAULT_VIDEO_MODEL,
+  generateVideo,
+} from "@/api/services/videos.ts";
 import tokenPool from "@/core/runtime/session-pool.ts";
 import util from "@/core/utils/util.ts";
 import logger from "@/core/utils/logger.ts";
@@ -45,7 +56,7 @@ export class JimengApiClient {
     requestedModel: string,
     taskType: "image" | "video",
     options?: McpRequestOptions,
-    requiredCapabilityTags: string[] = []
+    requiredCapabilityTags: string[] = [],
   ): Promise<{ token: string; regionInfo: any }> {
     await this.ensureTokenPoolReady();
     const token = this.resolveToken(options);
@@ -57,7 +68,9 @@ export class JimengApiClient {
     });
 
     if (!tokenPick.token || !tokenPick.region) {
-      throw new Error(tokenPick.reason || "Missing available token for model request");
+      throw new Error(
+        tokenPick.reason || "Missing available token for model request",
+      );
     }
 
     return {
@@ -68,14 +81,16 @@ export class JimengApiClient {
 
   private async pickTaskToken(
     options?: McpRequestOptions,
-    type: "image" | "video" = "image"
+    type: "image" | "video" = "image",
   ): Promise<{ token: string; regionInfo: any }> {
     await this.ensureTokenPoolReady();
     const token = this.resolveToken(options);
     if (token) {
       const entry = tokenPool.getTokenEntry(token);
       if (!entry?.region) {
-        throw new Error("Missing region for token. Register token with region in token-pool.");
+        throw new Error(
+          "Missing region for token. Register token with region in token-pool.",
+        );
       }
       return { token, regionInfo: buildRegionInfo(entry.region) };
     }
@@ -89,9 +104,14 @@ export class JimengApiClient {
         return true;
       });
     if (candidates.length === 0) {
-      throw new Error("No token available for task request. Configure token-pool or pass token.");
+      throw new Error(
+        "No token available for task request. Configure token-pool or pass token.",
+      );
     }
-    return { token: candidates[0].token, regionInfo: buildRegionInfo(candidates[0].region as RegionCode) };
+    return {
+      token: candidates[0].token,
+      regionInfo: buildRegionInfo(candidates[0].region as RegionCode),
+    };
   }
 
   async healthCheck(): Promise<any> {
@@ -112,14 +132,19 @@ export class JimengApiClient {
     };
   }
 
-  async generateImage(body: Record<string, unknown>, options?: McpRequestOptions): Promise<any> {
-    const model = typeof body.model === "string" && body.model.trim().length > 0
-      ? body.model
-      : DEFAULT_IMAGE_MODEL;
+  async generateImage(
+    body: Record<string, unknown>,
+    options?: McpRequestOptions,
+  ): Promise<any> {
+    const model =
+      typeof body.model === "string" && body.model.trim().length > 0
+        ? body.model
+        : DEFAULT_IMAGE_MODEL;
     const prompt = String(body.prompt || "");
     const tokenCtx = await this.pickModelToken(model, "image", options);
 
-    const responseFormat = body.response_format === "b64_json" ? "b64_json" : "url";
+    const responseFormat =
+      body.response_format === "b64_json" ? "b64_json" : "url";
     const imageResult = await generateImages(
       model,
       prompt,
@@ -134,16 +159,21 @@ export class JimengApiClient {
         pollIntervalMs: body.poll_interval_ms as number | undefined,
       },
       tokenCtx.token,
-      tokenCtx.regionInfo
+      tokenCtx.regionInfo,
     );
 
     if (!Array.isArray(imageResult)) {
       return imageResult;
     }
 
-    const data = responseFormat === "b64_json"
-      ? (await Promise.all(imageResult.map((url) => util.fetchFileBASE64(url)))).map((b64) => ({ b64_json: b64 }))
-      : imageResult.map((url) => ({ url }));
+    const data =
+      responseFormat === "b64_json"
+        ? (
+            await Promise.all(
+              imageResult.map((url) => util.fetchFileBASE64(url)),
+            )
+          ).map((b64) => ({ b64_json: b64 }))
+        : imageResult.map((url) => ({ url }));
 
     return {
       created: util.unixTimestamp(),
@@ -151,17 +181,22 @@ export class JimengApiClient {
     };
   }
 
-  async editImage(body: Record<string, unknown>, options?: McpRequestOptions): Promise<any> {
-    const model = typeof body.model === "string" && body.model.trim().length > 0
-      ? body.model
-      : DEFAULT_IMAGE_MODEL;
+  async editImage(
+    body: Record<string, unknown>,
+    options?: McpRequestOptions,
+  ): Promise<any> {
+    const model =
+      typeof body.model === "string" && body.model.trim().length > 0
+        ? body.model
+        : DEFAULT_IMAGE_MODEL;
     const prompt = String(body.prompt || "");
     const images = Array.isArray(body.images)
       ? body.images.filter((item): item is string => typeof item === "string")
       : [];
     const tokenCtx = await this.pickModelToken(model, "image", options);
 
-    const responseFormat = body.response_format === "b64_json" ? "b64_json" : "url";
+    const responseFormat =
+      body.response_format === "b64_json" ? "b64_json" : "url";
     const compositionResult = await generateImageComposition(
       model,
       prompt,
@@ -177,16 +212,21 @@ export class JimengApiClient {
         pollIntervalMs: body.poll_interval_ms as number | undefined,
       },
       tokenCtx.token,
-      tokenCtx.regionInfo
+      tokenCtx.regionInfo,
     );
 
     if (!Array.isArray(compositionResult)) {
       return compositionResult;
     }
 
-    const data = responseFormat === "b64_json"
-      ? (await Promise.all(compositionResult.map((url) => util.fetchFileBASE64(url)))).map((b64) => ({ b64_json: b64 }))
-      : compositionResult.map((url) => ({ url }));
+    const data =
+      responseFormat === "b64_json"
+        ? (
+            await Promise.all(
+              compositionResult.map((url) => util.fetchFileBASE64(url)),
+            )
+          ).map((b64) => ({ b64_json: b64 }))
+        : compositionResult.map((url) => ({ url }));
 
     return {
       created: util.unixTimestamp(),
@@ -196,15 +236,28 @@ export class JimengApiClient {
     };
   }
 
-  async generateVideo(body: Record<string, unknown>, options?: McpRequestOptions): Promise<any> {
-    const model = typeof body.model === "string" && body.model.trim().length > 0
-      ? body.model
-      : DEFAULT_VIDEO_MODEL;
+  async generateVideo(
+    body: Record<string, unknown>,
+    options?: McpRequestOptions,
+  ): Promise<any> {
+    const model =
+      typeof body.model === "string" && body.model.trim().length > 0
+        ? body.model
+        : DEFAULT_VIDEO_MODEL;
     const prompt = String(body.prompt || "");
 
-    const functionMode = typeof body.functionMode === "string" ? body.functionMode : "first_last_frames";
-    const requiredTags = functionMode === "omni_reference" ? ["omni_reference"] : [];
-    const tokenCtx = await this.pickModelToken(model, "video", options, requiredTags);
+    const functionMode =
+      typeof body.functionMode === "string"
+        ? body.functionMode
+        : "first_last_frames";
+    const requiredTags =
+      functionMode === "omni_reference" ? ["omni_reference"] : [];
+    const tokenCtx = await this.pickModelToken(
+      model,
+      "video",
+      options,
+      requiredTags,
+    );
 
     const videoResult = await generateVideo(
       model,
@@ -222,7 +275,7 @@ export class JimengApiClient {
         pollIntervalMs: body.poll_interval_ms as number | undefined,
       },
       tokenCtx.token,
-      tokenCtx.regionInfo
+      tokenCtx.regionInfo,
     );
 
     if (typeof videoResult !== "string") {
@@ -230,7 +283,9 @@ export class JimengApiClient {
     }
 
     if (body.response_format === "b64_json") {
-      logger.warn("Video b64_json mode is not recommended — video files can be very large. Using URL mode instead.");
+      logger.warn(
+        "Video b64_json mode is not recommended — video files can be very large. Using URL mode instead.",
+      );
       return {
         created: util.unixTimestamp(),
         data: [{ url: videoResult, revised_prompt: prompt }],
@@ -246,22 +301,33 @@ export class JimengApiClient {
   async getTask(
     taskId: string,
     options?: McpRequestOptions,
-    query?: { type?: string; response_format?: string }
+    query?: { type?: string; response_format?: string },
   ): Promise<any> {
-    const type = query?.type === "video" ? "video" : query?.type === "image" ? "image" : undefined;
+    const type =
+      query?.type === "video"
+        ? "video"
+        : query?.type === "image"
+          ? "image"
+          : undefined;
     const tokenCtx = await this.pickTaskToken(options, resolveTaskType(type));
     return getTaskResponse(taskId, tokenCtx.token, tokenCtx.regionInfo, {
       type,
-      responseFormat: query?.response_format === "b64_json" ? "b64_json" : "url",
+      responseFormat:
+        query?.response_format === "b64_json" ? "b64_json" : "url",
     });
   }
 
   async waitTask(
     taskId: string,
     body: Record<string, unknown>,
-    options?: McpRequestOptions
+    options?: McpRequestOptions,
   ): Promise<any> {
-    const type = body.type === "video" ? "video" : body.type === "image" ? "image" : undefined;
+    const type =
+      body.type === "video"
+        ? "video"
+        : body.type === "image"
+          ? "image"
+          : undefined;
     const tokenCtx = await this.pickTaskToken(options, resolveTaskType(type));
     return waitForTaskResponse(taskId, tokenCtx.token, tokenCtx.regionInfo, {
       type,
@@ -274,7 +340,7 @@ export class JimengApiClient {
   async generateVideoOmni(
     body: JsonObject,
     options?: McpRequestOptions,
-    uploadFiles: MultipartUploadFile[] = []
+    uploadFiles: MultipartUploadFile[] = [],
   ): Promise<any> {
     const files: Record<string, any> = {};
     for (const file of uploadFiles) {
@@ -293,20 +359,26 @@ export class JimengApiClient {
         functionMode: "omni_reference",
         files,
       },
-      options
+      options,
     );
   }
 
-  async upscaleImage(body: Record<string, unknown>, options?: McpRequestOptions): Promise<any> {
-    const model = typeof body.model === "string" && body.model.trim().length > 0
-      ? body.model
-      : DEFAULT_IMAGE_MODEL;
+  async upscaleImage(
+    body: Record<string, unknown>,
+    options?: McpRequestOptions,
+  ): Promise<any> {
+    const model =
+      typeof body.model === "string" && body.model.trim().length > 0
+        ? body.model
+        : DEFAULT_IMAGE_MODEL;
     const imageUrl = typeof body.image === "string" ? body.image : "";
-    if (!imageUrl) throw new Error("Missing required 'image' field (URL or base64)");
+    if (!imageUrl)
+      throw new Error("Missing required 'image' field (URL or base64)");
 
     const tokenCtx = await this.pickModelToken(model, "image", options);
 
-    const responseFormat = body.response_format === "b64_json" ? "b64_json" : "url";
+    const responseFormat =
+      body.response_format === "b64_json" ? "b64_json" : "url";
     const upscaleResult = await upscaleImage(
       model,
       imageUrl,
@@ -317,16 +389,21 @@ export class JimengApiClient {
         pollIntervalMs: body.poll_interval_ms as number | undefined,
       },
       tokenCtx.token,
-      tokenCtx.regionInfo
+      tokenCtx.regionInfo,
     );
 
     if (!Array.isArray(upscaleResult)) {
       return upscaleResult;
     }
 
-    const data = responseFormat === "b64_json"
-      ? (await Promise.all(upscaleResult.map((url) => util.fetchFileBASE64(url)))).map((b64) => ({ b64_json: b64 }))
-      : upscaleResult.map((url) => ({ url }));
+    const data =
+      responseFormat === "b64_json"
+        ? (
+            await Promise.all(
+              upscaleResult.map((url) => util.fetchFileBASE64(url)),
+            )
+          ).map((b64) => ({ b64_json: b64 }))
+        : upscaleResult.map((url) => ({ url }));
 
     return {
       created: util.unixTimestamp(),
@@ -335,7 +412,10 @@ export class JimengApiClient {
     };
   }
 
-  async listTasks(options?: McpRequestOptions, query?: { type?: string; count?: number }): Promise<any> {
+  async listTasks(
+    options?: McpRequestOptions,
+    query?: { type?: string; count?: number },
+  ): Promise<any> {
     const tokenCtx = await this.pickTaskToken(options);
     const result = await getAssetList(tokenCtx.token, tokenCtx.regionInfo, {
       count: query?.count || 20,

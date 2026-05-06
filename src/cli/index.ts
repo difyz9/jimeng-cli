@@ -3,4 +3,3 @@
 import { runCli } from "@/cli/app.ts";
 
 runCli();
-

@@ -9,7 +9,7 @@ export function registerHealthCheckTool({ server, client }: ToolDeps): void {
     {
       title: "Health Check",
       description: "Check jimeng-cli health endpoint",
-      inputSchema: healthCheckInputSchema
+      inputSchema: healthCheckInputSchema,
     },
     async () => {
       const startedAt = Date.now();
@@ -17,8 +17,8 @@ export function registerHealthCheckTool({ server, client }: ToolDeps): void {
       return {
         ok: true,
         latencyMs: Date.now() - startedAt,
-        raw
+        raw,
       };
-    }
+    },
   );
 }

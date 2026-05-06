@@ -23,7 +23,7 @@ export interface BaseVideoPayloadInput {
 
 export function buildBaseVideoPayload(
   args: BaseVideoPayloadInput,
-  functionMode: "first_last_frames" | "omni_reference"
+  functionMode: "first_last_frames" | "omni_reference",
 ): JsonObject {
   return {
     prompt: args.prompt,
@@ -35,7 +35,7 @@ export function buildBaseVideoPayload(
     wait: args.wait,
     wait_timeout_seconds: args.wait_timeout_seconds,
     poll_interval_ms: args.poll_interval_ms,
-    functionMode
+    functionMode,
   };
 }
 
@@ -51,7 +51,7 @@ export function collectStringArray(values?: string[]): string[] {
 export function collectIndexedSlotUrls<TArgs extends Record<string, unknown>>(
   args: TArgs,
   prefix: MaterialPrefix,
-  max: number
+  max: number,
 ): Map<number, string> {
   const values = new Map<number, string>();
   for (let i = 1; i <= max; i++) {
@@ -67,7 +67,10 @@ export function collectIndexedSlotUrls<TArgs extends Record<string, unknown>>(
 export function assertLocalFilesExist(paths: string[]): void {
   for (const filePath of paths) {
     if (!fs.existsSync(filePath)) {
-      throw new McpToolError("VALIDATION_ERROR", `Local file not found: ${filePath}`);
+      throw new McpToolError(
+        "VALIDATION_ERROR",
+        `Local file not found: ${filePath}`,
+      );
     }
   }
 }
@@ -75,7 +78,7 @@ export function assertLocalFilesExist(paths: string[]): void {
 export function takeNextAvailableSlot(
   occupiedSlots: Set<number>,
   maxSlots: number,
-  materialLabel: MaterialLabel
+  materialLabel: MaterialLabel,
 ): number {
   for (let i = 1; i <= maxSlots; i++) {
     if (!occupiedSlots.has(i)) {
@@ -85,7 +88,7 @@ export function takeNextAvailableSlot(
   }
   throw new McpToolError(
     "VALIDATION_ERROR",
-    `No available ${materialLabel} slot. Maximum supported: ${maxSlots}.`
+    `No available ${materialLabel} slot. Maximum supported: ${maxSlots}.`,
   );
 }
 
@@ -95,7 +98,7 @@ export function appendUrlMaterials(
   urls: string[],
   prefix: MaterialPrefix,
   maxSlots: number,
-  materialLabel: MaterialLabel
+  materialLabel: MaterialLabel,
 ): void {
   for (const url of urls) {
     const slot = takeNextAvailableSlot(occupiedSlots, maxSlots, materialLabel);
@@ -109,13 +112,13 @@ export function appendFileMaterials(
   filePaths: string[],
   prefix: MaterialPrefix,
   maxSlots: number,
-  materialLabel: MaterialLabel
+  materialLabel: MaterialLabel,
 ): void {
   for (const filePath of filePaths) {
     const slot = takeNextAvailableSlot(occupiedSlots, maxSlots, materialLabel);
     uploadFiles.push({
       fieldName: `${prefix}_${slot}`,
-      filePath
+      filePath,
     });
   }
 }

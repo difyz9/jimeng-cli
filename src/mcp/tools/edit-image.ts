@@ -3,14 +3,18 @@ import { editImageInputSchema } from "../schemas.ts";
 import type { ToolDeps } from "../types.ts";
 import { registerSafeTool } from "../tool-factory.ts";
 
-export function registerEditImageTool({ server, config, client }: ToolDeps): void {
+export function registerEditImageTool({
+  server,
+  config,
+  client,
+}: ToolDeps): void {
   registerSafeTool(
     server,
     "edit_image",
     {
       title: "Edit Image",
       description: "Compose image from prompt and image URLs",
-      inputSchema: editImageInputSchema
+      inputSchema: editImageInputSchema,
     },
     async (args) => {
       assertRunConfirm(config, args.confirm);
@@ -28,10 +32,10 @@ export function registerEditImageTool({ server, config, client }: ToolDeps): voi
           response_format: args.response_format,
           wait: args.wait,
           wait_timeout_seconds: args.wait_timeout_seconds,
-          poll_interval_ms: args.poll_interval_ms
+          poll_interval_ms: args.poll_interval_ms,
         },
-        { token: args.token }
+        { token: args.token },
       );
-    }
+    },
   );
 }

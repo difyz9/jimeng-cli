@@ -2,7 +2,12 @@ import minimist from "minimist";
 
 import { buildRegionInfo, type RegionCode } from "@/api/services/core.ts";
 import { getLiveModels, refreshAllTokenModels } from "@/api/services/models.ts";
-import { getTaskResponse, waitForTaskResponse, getAssetList, AssetListOptions } from "@/api/services/tasks.ts";
+import {
+  getTaskResponse,
+  waitForTaskResponse,
+  getAssetList,
+  AssetListOptions,
+} from "@/api/services/tasks.ts";
 import tokenPool from "@/core/runtime/session-pool.ts";
 import { maskToken } from "@/core/utils/util.ts";
 
@@ -27,12 +32,15 @@ type QueryDeps = {
   usageTaskGet: () => string;
   usageTaskWait: () => string;
   usageTaskList: () => string;
-  getSingleString: (args: Record<string, unknown>, key: string) => string | undefined;
+  getSingleString: (
+    args: Record<string, unknown>,
+    key: string,
+  ) => string | undefined;
   parseRegionOrFail: (region: string | undefined) => RegionCode | undefined;
   ensureTokenPoolReady: () => Promise<void>;
   pickDirectTokenForTask: (
     token: string | undefined,
-    region: string | undefined
+    region: string | undefined,
   ) => Promise<{ token: string; region: RegionCode }>;
   fail: (message: string) => never;
   printJson: (value: unknown) => void;
@@ -44,13 +52,19 @@ type QueryDeps = {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-function parseTaskTypeOrFail(value: string | undefined, deps: Pick<QueryDeps, "fail">): "image" | "video" | undefined {
+function parseTaskTypeOrFail(
+  value: string | undefined,
+  deps: Pick<QueryDeps, "fail">,
+): "image" | "video" | undefined {
   if (!value) return undefined;
   if (value === "image" || value === "video") return value;
   deps.fail(`Invalid --type: ${value}. Use image or video.`);
 }
 
-function parseResponseFormatOrFail(value: string | undefined, deps: Pick<QueryDeps, "fail">): "url" | "b64_json" {
+function parseResponseFormatOrFail(
+  value: string | undefined,
+  deps: Pick<QueryDeps, "fail">,
+): "url" | "b64_json" {
   if (!value) return "url";
   if (value === "url" || value === "b64_json") return value;
   deps.fail(`Invalid --response-format: ${value}. Use url or b64_json.`);
@@ -59,7 +73,7 @@ function parseResponseFormatOrFail(value: string | undefined, deps: Pick<QueryDe
 function parsePositiveNumberOption(
   args: Record<string, unknown>,
   key: "wait-timeout-seconds" | "poll-interval-ms",
-  deps: Pick<QueryDeps, "getSingleString" | "fail">
+  deps: Pick<QueryDeps, "getSingleString" | "fail">,
 ): number | undefined {
   const raw = deps.getSingleString(args, key);
   if (!raw) return undefined;
@@ -82,11 +96,15 @@ function taskStatusText(status: number): string {
 }
 
 function formatUnixSeconds(value: unknown): string {
-  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return "-";
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0)
+    return "-";
   return `${value} (${new Date(value * 1000).toISOString()})`;
 }
 
-function collectTaskInfo(payload: unknown, deps: Pick<QueryDeps, "unwrapBody">): TaskInfo | null {
+function collectTaskInfo(
+  payload: unknown,
+  deps: Pick<QueryDeps, "unwrapBody">,
+): TaskInfo | null {
   const normalized = deps.unwrapBody(payload);
   if (!normalized || typeof normalized !== "object") return null;
   const obj = normalized as JsonRecord;
@@ -95,13 +113,19 @@ function collectTaskInfo(payload: unknown, deps: Pick<QueryDeps, "unwrapBody">):
     task_id: obj.task_id,
     type: typeof obj.type === "string" ? obj.type : undefined,
     status: typeof obj.status === "number" ? obj.status : undefined,
-    fail_code: typeof obj.fail_code === "string" || obj.fail_code === null ? (obj.fail_code as string | null) : undefined,
+    fail_code:
+      typeof obj.fail_code === "string" || obj.fail_code === null
+        ? (obj.fail_code as string | null)
+        : undefined,
     created: typeof obj.created === "number" ? obj.created : undefined,
     data: obj.data,
   };
 }
 
-function printTaskInfo(task: TaskInfo, deps: Pick<QueryDeps, "printJson">): void {
+function printTaskInfo(
+  task: TaskInfo,
+  deps: Pick<QueryDeps, "printJson">,
+): void {
   console.log(`Task ID: ${task.task_id}`);
   if (task.type) console.log(`Type: ${task.type}`);
   if (typeof task.status === "number") {
@@ -124,7 +148,7 @@ function outputTaskResult(
   command: string,
   normalized: unknown,
   isJson: boolean,
-  deps: QueryDeps
+  deps: QueryDeps,
 ): void {
   const taskInfo = collectTaskInfo(normalized, deps);
   if (!taskInfo) {
@@ -144,23 +168,27 @@ function outputTaskResult(
 function resolveSingleQueryToken(
   explicitToken: string | undefined,
   explicitRegion: string | undefined,
-  deps: QueryDeps
+  deps: QueryDeps,
 ): { token: string | undefined; region: RegionCode | undefined } {
-  const regionCode = explicitRegion ? deps.parseRegionOrFail(explicitRegion) : undefined;
+  const regionCode = explicitRegion
+    ? deps.parseRegionOrFail(explicitRegion)
+    : undefined;
 
   if (explicitToken) {
     const poolRegion = tokenPool.getTokenEntry(explicitToken)?.region;
     const region = regionCode || poolRegion;
     if (!region) {
-      deps.fail("Missing region for token. Provide --region or register token in token-pool.");
+      deps.fail(
+        "Missing region for token. Provide --region or register token in token-pool.",
+      );
     }
     return { token: explicitToken, region };
   }
 
   if (!regionCode) {
-    const entry = tokenPool.getEntries(false).find(
-      (item) => item.enabled && item.live !== false && item.region
-    );
+    const entry = tokenPool
+      .getEntries(false)
+      .find((item) => item.enabled && item.live !== false && item.region);
     if (!entry) {
       deps.fail("No token available. Provide --token, --region, or --all.");
     }
@@ -190,19 +218,29 @@ function printModelVerbose(models: unknown[]): void {
     if (!id) continue;
     const type = typeof m.model_type === "string" ? m.model_type : "-";
     const desc = typeof m.description === "string" ? m.description : "-";
-    const availability = typeof m.availability === "string" ? m.availability : "discoverable";
+    const availability =
+      typeof m.availability === "string" ? m.availability : "discoverable";
     const caps = Array.isArray(m.capabilities)
-      ? m.capabilities.filter((c): c is string => typeof c === "string").join(",")
+      ? m.capabilities
+          .filter((c): c is string => typeof c === "string")
+          .join(",")
       : "-";
     console.log(`${id}  [${type}]  ${desc}`);
     console.log(`  availability: ${availability}`);
     console.log(`  capabilities: ${caps}`);
-    if (Array.isArray(m.requires_entitlement) && m.requires_entitlement.length > 0) {
-      console.log(`  requires_entitlement: ${m.requires_entitlement.join(", ")}`);
+    if (
+      Array.isArray(m.requires_entitlement) &&
+      m.requires_entitlement.length > 0
+    ) {
+      console.log(
+        `  requires_entitlement: ${m.requires_entitlement.join(", ")}`,
+      );
     }
     const params = m.params;
     if (params && typeof params === "object") {
-      for (const [key, vals] of Object.entries(params as Record<string, unknown>)) {
+      for (const [key, vals] of Object.entries(
+        params as Record<string, unknown>,
+      )) {
         if (Array.isArray(vals)) {
           console.log(`  ${key}: ${vals.join(", ")}`);
         }
@@ -240,11 +278,16 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
 
     console.log(`Refreshed ${results.length} token(s).`);
     console.log("");
-    console.log("token\t\tregion\timageModels\tvideoModels\tcapabilityTags\terror");
+    console.log(
+      "token\t\tregion\timageModels\tvideoModels\tcapabilityTags\terror",
+    );
     for (const r of results) {
-      const tags = r.capabilityTags.length > 0 ? r.capabilityTags.join(",") : "-";
+      const tags =
+        r.capabilityTags.length > 0 ? r.capabilityTags.join(",") : "-";
       const err = r.error ? r.error.slice(0, 60) : "-";
-      console.log(`${r.token}\t${r.region}\t${r.imageModels}\t\t${r.videoModels}\t\t${tags}\t${err}`);
+      console.log(
+        `${r.token}\t${r.region}\t${r.imageModels}\t\t${r.videoModels}\t\t${tags}\t${err}`,
+      );
     }
   };
 
@@ -269,9 +312,9 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
 
     // --all: query every enabled+live token with a region
     if (args.all) {
-      const entries = tokenPool.getEntries(false).filter(
-        (item) => item.enabled && item.live !== false && item.region
-      );
+      const entries = tokenPool
+        .getEntries(false)
+        .filter((item) => item.enabled && item.live !== false && item.region);
       if (entries.length === 0) {
         deps.fail("No enabled+live tokens with region found in pool.");
       }
@@ -280,9 +323,13 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
         entries.map(async (entry): Promise<JsonRecord> => {
           const masked = maskToken(entry.token);
           try {
-            const direct = await getLiveModels(`Bearer ${entry.token}`, entry.region, {
-              includeManual,
-            });
+            const direct = await getLiveModels(
+              `Bearer ${entry.token}`,
+              entry.region,
+              {
+                includeManual,
+              },
+            );
             return {
               token: masked,
               region: entry.region,
@@ -292,9 +339,13 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
                 : direct.data.map((m: any) => m.id),
             };
           } catch (error: unknown) {
-            return { token: masked, region: entry.region, error: error instanceof Error ? error.message : String(error) };
+            return {
+              token: masked,
+              region: entry.region,
+              error: error instanceof Error ? error.message : String(error),
+            };
           }
-        })
+        }),
       );
 
       if (isJson) {
@@ -316,17 +367,29 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
     }
 
     // Single query
-    const { token, region } = resolveSingleQueryToken(explicitToken, explicitRegion, deps);
-    const direct = await getLiveModels(token ? `Bearer ${token}` : undefined, region, {
-      includeManual,
-    });
+    const { token, region } = resolveSingleQueryToken(
+      explicitToken,
+      explicitRegion,
+      deps,
+    );
+    const direct = await getLiveModels(
+      token ? `Bearer ${token}` : undefined,
+      region,
+      {
+        includeManual,
+      },
+    );
     const models = direct.data;
 
     if (isJson) {
-      deps.printCommandJson("models.list", { object: "list", data: models }, {
-        region: region || null,
-        token: token ? `${token.slice(0, 4)}...` : null,
-      });
+      deps.printCommandJson(
+        "models.list",
+        { object: "list", data: models },
+        {
+          region: region || null,
+          token: token ? `${token.slice(0, 4)}...` : null,
+        },
+      );
       return;
     }
 
@@ -348,18 +411,38 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
       return;
     }
     const taskId = deps.getSingleString(args, "task-id");
-    if (!taskId) deps.fail(`Missing required --task-id.\n\n${deps.usageTaskGet()}`);
+    if (!taskId)
+      deps.fail(`Missing required --task-id.\n\n${deps.usageTaskGet()}`);
 
     const type = parseTaskTypeOrFail(deps.getSingleString(args, "type"), deps);
-    const responseFormat = parseResponseFormatOrFail(deps.getSingleString(args, "response-format"), deps);
-    const pick = await deps.pickDirectTokenForTask(deps.getSingleString(args, "token"), deps.getSingleString(args, "region"));
-    const normalized = await getTaskResponse(taskId, pick.token, buildRegionInfo(pick.region), { type, responseFormat });
+    const responseFormat = parseResponseFormatOrFail(
+      deps.getSingleString(args, "response-format"),
+      deps,
+    );
+    const pick = await deps.pickDirectTokenForTask(
+      deps.getSingleString(args, "token"),
+      deps.getSingleString(args, "region"),
+    );
+    const normalized = await getTaskResponse(
+      taskId,
+      pick.token,
+      buildRegionInfo(pick.region),
+      { type, responseFormat },
+    );
     outputTaskResult("task.get", normalized, Boolean(args.json), deps);
   };
 
   const handleTaskWait = async (argv: string[]): Promise<void> => {
     const args = minimist(argv, {
-      string: ["token", "region", "task-id", "type", "response-format", "wait-timeout-seconds", "poll-interval-ms"],
+      string: [
+        "token",
+        "region",
+        "task-id",
+        "type",
+        "response-format",
+        "wait-timeout-seconds",
+        "poll-interval-ms",
+      ],
       boolean: ["help", "json"],
     });
     if (args.help) {
@@ -367,20 +450,40 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
       return;
     }
     const taskId = deps.getSingleString(args, "task-id");
-    if (!taskId) deps.fail(`Missing required --task-id.\n\n${deps.usageTaskWait()}`);
+    if (!taskId)
+      deps.fail(`Missing required --task-id.\n\n${deps.usageTaskWait()}`);
 
     const type = parseTaskTypeOrFail(deps.getSingleString(args, "type"), deps);
-    const responseFormat = parseResponseFormatOrFail(deps.getSingleString(args, "response-format"), deps);
-    const waitTimeoutSeconds = parsePositiveNumberOption(args, "wait-timeout-seconds", deps);
-    const pollIntervalMs = parsePositiveNumberOption(args, "poll-interval-ms", deps);
+    const responseFormat = parseResponseFormatOrFail(
+      deps.getSingleString(args, "response-format"),
+      deps,
+    );
+    const waitTimeoutSeconds = parsePositiveNumberOption(
+      args,
+      "wait-timeout-seconds",
+      deps,
+    );
+    const pollIntervalMs = parsePositiveNumberOption(
+      args,
+      "poll-interval-ms",
+      deps,
+    );
 
-    const pick = await deps.pickDirectTokenForTask(deps.getSingleString(args, "token"), deps.getSingleString(args, "region"));
-    const normalized = await waitForTaskResponse(taskId, pick.token, buildRegionInfo(pick.region), {
-      type,
-      responseFormat,
-      waitTimeoutSeconds,
-      pollIntervalMs,
-    });
+    const pick = await deps.pickDirectTokenForTask(
+      deps.getSingleString(args, "token"),
+      deps.getSingleString(args, "region"),
+    );
+    const normalized = await waitForTaskResponse(
+      taskId,
+      pick.token,
+      buildRegionInfo(pick.region),
+      {
+        type,
+        responseFormat,
+        waitTimeoutSeconds,
+        pollIntervalMs,
+      },
+    );
     outputTaskResult("task.wait", normalized, Boolean(args.json), deps);
   };
 
@@ -403,11 +506,18 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
     const count = countRaw ? Number(countRaw) : 20;
     const isJson = Boolean(args.json);
 
-    const pick = await deps.pickDirectTokenForTask(deps.getSingleString(args, "token"), deps.getSingleString(args, "region"));
-    const result = await getAssetList(pick.token, buildRegionInfo(pick.region), {
-      count: Number.isFinite(count) && count > 0 ? count : 20,
-      type: type as AssetListOptions["type"],
-    });
+    const pick = await deps.pickDirectTokenForTask(
+      deps.getSingleString(args, "token"),
+      deps.getSingleString(args, "region"),
+    );
+    const result = await getAssetList(
+      pick.token,
+      buildRegionInfo(pick.region),
+      {
+        count: Number.isFinite(count) && count > 0 ? count : 20,
+        type: type as AssetListOptions["type"],
+      },
+    );
 
     if (isJson) {
       deps.printCommandJson("task.list", {
@@ -419,14 +529,29 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
       return;
     }
 
-    console.log(`Total: ${result.items.length} items${result.hasMore ? " (more available)" : ""}\n`);
+    console.log(
+      `Total: ${result.items.length} items${result.hasMore ? " (more available)" : ""}\n`,
+    );
     for (const item of result.items) {
       const typeLabel = item.type === 1 ? "IMG" : "VID";
-      const statusLabel = item.status === 144 || item.status === 10 ? "DONE" : item.status === 30 ? "FAIL" : "PROC";
-      const time = item.createdTime > 0 ? new Date(item.createdTime * 1000).toLocaleString() : "-";
+      const statusLabel =
+        item.status === 144 || item.status === 10
+          ? "DONE"
+          : item.status === 30
+            ? "FAIL"
+            : "PROC";
+      const time =
+        item.createdTime > 0
+          ? new Date(item.createdTime * 1000).toLocaleString()
+          : "-";
       const modelShort = item.modelName || item.modelReqKey || "-";
-      const promptShort = item.prompt.length > 50 ? item.prompt.slice(0, 50) + "..." : item.prompt;
-      console.log(`${item.id}  ${typeLabel}  ${statusLabel.padEnd(4)}  ${time}  ${modelShort.padEnd(20)}  ${promptShort}`);
+      const promptShort =
+        item.prompt.length > 50
+          ? item.prompt.slice(0, 50) + "..."
+          : item.prompt;
+      console.log(
+        `${item.id}  ${typeLabel}  ${statusLabel.padEnd(4)}  ${time}  ${modelShort.padEnd(20)}  ${promptShort}`,
+      );
       if (item.imageUrl) console.log(`         ${item.imageUrl}`);
     }
   };
@@ -439,7 +564,10 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
     handleTaskList,
     printTaskInfo: (task: unknown) => {
       const info = collectTaskInfo(task, deps);
-      if (!info) { deps.printJson(task); return; }
+      if (!info) {
+        deps.printJson(task);
+        return;
+      }
       printTaskInfo(info, deps);
     },
   };

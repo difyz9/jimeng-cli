@@ -27,13 +27,16 @@ export function normalizeToolError(error: unknown): McpToolError {
       return new McpToolError(
         "NETWORK_ERROR",
         "Failed to reach jimeng-cli service",
-        error.message
+        error.message,
       );
     }
 
     const status = error.response.status;
-    const message =
-      String(error.response.data?.error?.message || error.response.data?.message || error.message);
+    const message = String(
+      error.response.data?.error?.message ||
+        error.response.data?.message ||
+        error.message,
+    );
 
     if (status === 401 || status === 403) {
       return new McpToolError("AUTH_ERROR", message, error.response.data);
