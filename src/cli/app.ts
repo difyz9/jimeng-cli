@@ -1,5 +1,7 @@
 import process from "node:process";
 
+import minimist from "minimist";
+
 import config from "@/core/config/config.ts";
 import logger from "@/core/utils/logger.ts";
 import tokenPool from "@/core/runtime/session-pool.ts";
@@ -12,6 +14,16 @@ import {
 import { createQueryCommandHandlers } from "@/cli/commands/query.ts";
 import { createMediaCommandHandlers } from "@/cli/commands/media.ts";
 import { createLoginCommandHandler } from "@/cli/commands/login.ts";
+import {
+  getCliConfigFilePath,
+  getDefaultRatio,
+  getDefaultRegion,
+  parseRatio,
+  readCliConfig,
+  setDefaultRatio,
+  setDefaultRegion,
+  SUPPORTED_RATIOS,
+} from "@/cli/config-store.ts";
 
 type JsonRecord = Record<string, unknown>;
 type CliHandler = (argv: string[]) => Promise<void>;
@@ -115,13 +127,39 @@ function usageTokenRoot(): string {
   ].join("\n");
 }
 
+function usageSet(): string {
+  return buildUsageText("  jimeng set <key> <value> [options]", [
+    "  region <region>          Set default region (cn/us/hk/jp/sg)",
+    `  ratio <ratio>            Set default ratio (${SUPPORTED_RATIOS.join(", ")})`,
+    JSON_OPTION,
+    HELP_OPTION,
+  ]);
+}
+
+function usageGet(): string {
+  return buildUsageText("  jimeng get <key> [options]", [
+    "  region                   Get default region",
+    "  ratio                    Get default ratio",
+    JSON_OPTION,
+    HELP_OPTION,
+  ]);
+}
+
+function usageConfigRoot(): string {
+  return buildUsageText("  jimeng config <subcommand> [options]", [
+    "  list                     Show CLI config",
+    JSON_OPTION,
+    HELP_OPTION,
+  ]);
+}
+
 function usageImageGenerate(): string {
   return buildUsageText("  jimeng image generate --prompt <text> [options]", [
     "  --token <token>          Optional, override token-pool selection",
-    "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
-    "  --prompt <text>          Required",
-    "  --model <model>          Default jimeng-4.5",
-    "  --ratio <ratio>          Default 1:1",
+    "  -r, --region <region>    X-Region header, default from `jimeng set region` or cn",
+    "  -p, --prompt <text>      Required",
+    "  -m, --model <model>      Default jimeng-4.5",
+    "  --ratio <ratio>          Default from `jimeng set ratio` or 1:1",
     "  --resolution <res>       Default 2k",
     "  --negative-prompt <text> Optional",
     "  --sample-strength <num>  Optional, 0-1",
@@ -130,7 +168,7 @@ function usageImageGenerate(): string {
     "  --wait-timeout-seconds   Optional wait timeout override",
     "  --poll-interval-ms       Optional poll interval override",
     JSON_OPTION,
-    "  --output-dir <dir>       Default ./pic/cli-image-generate",
+    "  -o, --output <path>      Save to file path; multiple images add -01 suffix",
     HELP_OPTION,
   ]);
 }
@@ -140,11 +178,11 @@ function usageImageEdit(): string {
     "  jimeng image edit --prompt <text> --image <path_or_url> [--image <path_or_url> ...] [options]",
     [
       "  --token <token>          Optional, override token-pool selection",
-      "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
-      "  --prompt <text>          Required",
+      "  -r, --region <region>    X-Region header, default from `jimeng set region` or cn",
+      "  -p, --prompt <text>      Required",
       "  --image <path_or_url>    Required, can be repeated (1-10)",
-      "  --model <model>          Default jimeng-4.5",
-      "  --ratio <ratio>          Default 1:1",
+      "  -m, --model <model>      Default jimeng-4.5",
+      "  --ratio <ratio>          Default from `jimeng set ratio` or 1:1",
       "  --resolution <res>       Default 2k",
       "  --negative-prompt <text> Optional",
       "  --sample-strength <num>  Optional, 0-1",
@@ -153,7 +191,7 @@ function usageImageEdit(): string {
       "  --wait-timeout-seconds   Optional wait timeout override",
       "  --poll-interval-ms       Optional poll interval override",
       JSON_OPTION,
-      "  --output-dir <dir>       Default ./pic/cli-image-edit",
+      "  -o, --output <path>      Save to file path; multiple images add -01 suffix",
       HELP_OPTION,
     ],
     [
@@ -172,15 +210,15 @@ function usageImageUpscale(): string {
     "  jimeng image upscale --image <path_or_url> [options]",
     [
       "  --token <token>          Optional, override token-pool selection",
-      "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
+      "  -r, --region <region>    X-Region header, default from `jimeng set region` or cn",
       "  --image <path_or_url>    Required, local file or URL",
-      "  --model <model>          Default jimeng-5.0",
+      "  -m, --model <model>      Default jimeng-5.0",
       "  --resolution <res>       Default 4k (target resolution)",
       "  --wait / --no-wait       Default wait; --no-wait returns task only",
       "  --wait-timeout-seconds   Optional wait timeout override",
       "  --poll-interval-ms       Optional poll interval override",
       JSON_OPTION,
-      "  --output-dir <dir>       Default ./pic/cli-image-upscale",
+      "  -o, --output <path>      Save to file path",
       HELP_OPTION,
     ],
     [
@@ -201,8 +239,8 @@ function usageVideoGenerate(): string {
     "  jimeng video generate --prompt <text> [options]",
     [
       "  --token <token>          Optional, override token-pool selection",
-      "  --region <region>        X-Region header, default cn (cn/us/hk/jp/sg)",
-      "  --prompt <text>          Required",
+      "  -r, --region <region>    X-Region header, default from `jimeng set region` or cn",
+      "  -p, --prompt <text>      Required",
       "  --mode <mode>            Optional, text_to_video (default), image_to_video, first_last_frames, or omni_reference",
       "  --image-file <input>     Image input, can be repeated (path or URL)",
       "  --video-file <input>     Video input, can be repeated (path or URL, omni only)",
@@ -210,15 +248,15 @@ function usageVideoGenerate(): string {
       "  --image-file-2 ... -9    More explicit image slots for omni_reference",
       "  --video-file-1 <input>   Explicit video slot (1-3) for omni_reference",
       "  --video-file-2 ... -3    More explicit video slots for omni_reference",
-      "  --model <model>          Default jimeng-video-3.0 (jimeng-video-seedance-2.0-fast in omni_reference)",
-      "  --ratio <ratio>          Default 1:1",
+      "  -m, --model <model>      Default jimeng-video-3.0 (jimeng-video-seedance-2.0-fast in omni_reference)",
+      "  --ratio <ratio>          Default from `jimeng set ratio` or 1:1",
       "  --resolution <res>       Default 720p",
       "  --duration <seconds>     Default 5",
       "  --wait / --no-wait       Default wait; --no-wait returns task only",
       "  --wait-timeout-seconds   Optional wait timeout override",
       "  --poll-interval-ms       Optional poll interval override",
       JSON_OPTION,
-      "  --output-dir <dir>       Default ./pic/cli-video-generate",
+      "  -o, --output <path>      Save to file path",
       HELP_OPTION,
     ],
     [
@@ -319,7 +357,18 @@ function getSingleString(
 }
 
 function getRegionWithDefault(args: Record<string, unknown>): string {
-  return getSingleString(args, "region") || "cn";
+  return getSingleString(args, "region") || getDefaultRegion();
+}
+
+function getRatioWithDefault(args: Record<string, unknown>): string {
+  const value = getSingleString(args, "ratio") || getSingleString(args, "ration");
+  const ratio = parseRatio(value || getDefaultRatio());
+  if (!ratio) {
+    fail(
+      `Invalid --ratio: ${value}. Use one of: ${SUPPORTED_RATIOS.join(", ")}`,
+    );
+  }
+  return ratio;
 }
 
 function toStringList(raw: unknown): string[] {
@@ -446,6 +495,93 @@ function isHelpKeyword(value: string | undefined): boolean {
   return value === "--help" || value === "-h" || value === "help";
 }
 
+function createConfigPayload() {
+  const userConfig = readCliConfig();
+  return {
+    region: userConfig.region || "cn",
+    ratio: userConfig.ratio || "1:1",
+    filePath: getCliConfigFilePath(),
+    updatedAt: userConfig.updatedAt || null,
+  };
+}
+
+function parseSimpleCommandArgs(argv: string[]) {
+  return minimist(argv, {
+    boolean: ["help", "json"],
+  });
+}
+
+async function handleSetCommand(argv: string[]): Promise<void> {
+  const args = parseSimpleCommandArgs(argv);
+  if (args.help) {
+    console.log(usageSet());
+    return;
+  }
+  const [key, value] = args._.map(String);
+  if (key === "region") {
+    const region = parseRegionOrFail(value);
+    if (!region) failWithUsage("Missing region value.", usageSet());
+    const saved = setDefaultRegion(region);
+    const payload = {
+      region: saved.region || "cn",
+      ratio: saved.ratio || "1:1",
+      filePath: getCliConfigFilePath(),
+      updatedAt: saved.updatedAt || null,
+    };
+    if (args.json) printCommandJson("config.set", payload);
+    else console.log(`Default region set to ${payload.region}`);
+    return;
+  }
+  if (key === "ratio") {
+    const ratio = parseRatio(value);
+    if (!ratio) {
+      failWithUsage(
+        `Invalid ratio: ${value || ""}. Use one of: ${SUPPORTED_RATIOS.join(", ")}`,
+        usageSet(),
+      );
+    }
+    const saved = setDefaultRatio(ratio);
+    const payload = {
+      region: saved.region || "cn",
+      ratio: saved.ratio || "1:1",
+      filePath: getCliConfigFilePath(),
+      updatedAt: saved.updatedAt || null,
+    };
+    if (args.json) printCommandJson("config.set", payload);
+    else console.log(`Default ratio set to ${payload.ratio}`);
+    return;
+  }
+  {
+    failWithUsage(`Unknown config key: ${key || ""}`, usageSet());
+  }
+}
+
+async function handleGetCommand(argv: string[]): Promise<void> {
+  const args = parseSimpleCommandArgs(argv);
+  if (args.help) {
+    console.log(usageGet());
+    return;
+  }
+  const [key] = args._.map(String);
+  if (key !== "region" && key !== "ratio") {
+    failWithUsage(`Unknown config key: ${key || ""}`, usageGet());
+  }
+  const payload = createConfigPayload();
+  if (args.json) printCommandJson("config.get", payload);
+  else console.log(key === "ratio" ? payload.ratio : payload.region);
+}
+
+async function handleConfigListCommand(argv: string[]): Promise<void> {
+  const args = parseSimpleCommandArgs(argv);
+  if (args.help) {
+    console.log(usageConfigRoot());
+    return;
+  }
+  const payload = createConfigPayload();
+  if (args.json) printCommandJson("config.list", payload);
+  else printJson(payload);
+}
+
 const TOKEN_SUBCOMMANDS: TokenSubcommandDef[] = createTokenSubcommands({
   getUsage: (name) => usageTokenSubcommand(name),
   getSingleString,
@@ -469,6 +605,7 @@ const queryHandlers = createQueryCommandHandlers({
   usageTaskWait,
   usageTaskList,
   getSingleString,
+  getRegionWithDefault,
   parseRegionOrFail,
   ensureTokenPoolReady,
   pickDirectTokenForTask,
@@ -485,6 +622,7 @@ const mediaHandlers = createMediaCommandHandlers({
   usageVideoGenerate,
   getSingleString,
   getRegionWithDefault,
+  getRatioWithDefault,
   toStringList,
   fail,
   failWithUsage,
@@ -525,6 +663,28 @@ type CommandSpec = {
 };
 
 const COMMAND_SPECS: CommandSpec[] = [
+  {
+    name: "set",
+    description: "Set CLI preferences",
+    handler: handleSetCommand,
+  },
+  {
+    name: "get",
+    description: "Get CLI preferences",
+    handler: handleGetCommand,
+  },
+  {
+    name: "config",
+    description: "Config commands",
+    subcommands: [
+      {
+        name: "list",
+        description: "Show CLI config",
+        handler: handleConfigListCommand,
+      },
+    ],
+    usage: usageConfigRoot,
+  },
   {
     name: "login",
     description: "Login and add session to token pool",

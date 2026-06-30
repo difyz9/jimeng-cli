@@ -36,6 +36,7 @@ type QueryDeps = {
     args: Record<string, unknown>,
     key: string,
   ) => string | undefined;
+  getRegionWithDefault: (args: Record<string, unknown>) => string;
   parseRegionOrFail: (region: string | undefined) => RegionCode | undefined;
   ensureTokenPoolReady: () => Promise<void>;
   pickDirectTokenForTask: (
@@ -295,6 +296,7 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
     const args = minimist(argv, {
       string: ["region", "token"],
       boolean: ["help", "json", "verbose", "all", "all-known"],
+      alias: { r: "region" },
     });
     if (args.help) {
       console.log(deps.usageModelsList());
@@ -303,7 +305,7 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
 
     const isJson = Boolean(args.json);
     const isVerbose = Boolean(args.verbose);
-    const explicitRegion = deps.getSingleString(args, "region");
+    const explicitRegion = deps.getRegionWithDefault(args);
     const explicitToken = deps.getSingleString(args, "token");
 
     const includeManual = Boolean(args["all-known"]);
@@ -405,6 +407,7 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
     const args = minimist(argv, {
       string: ["token", "region", "task-id", "type", "response-format"],
       boolean: ["help", "json"],
+      alias: { r: "region" },
     });
     if (args.help) {
       console.log(deps.usageTaskGet());
@@ -421,7 +424,7 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
     );
     const pick = await deps.pickDirectTokenForTask(
       deps.getSingleString(args, "token"),
-      deps.getSingleString(args, "region"),
+      deps.getRegionWithDefault(args),
     );
     const normalized = await getTaskResponse(
       taskId,
@@ -444,6 +447,7 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
         "poll-interval-ms",
       ],
       boolean: ["help", "json"],
+      alias: { r: "region" },
     });
     if (args.help) {
       console.log(deps.usageTaskWait());
@@ -471,7 +475,7 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
 
     const pick = await deps.pickDirectTokenForTask(
       deps.getSingleString(args, "token"),
-      deps.getSingleString(args, "region"),
+      deps.getRegionWithDefault(args),
     );
     const normalized = await waitForTaskResponse(
       taskId,
@@ -491,6 +495,7 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
     const args = minimist(argv, {
       string: ["token", "region", "type", "count"],
       boolean: ["help", "json"],
+      alias: { r: "region" },
     });
     if (args.help) {
       console.log(deps.usageTaskList());
@@ -508,7 +513,7 @@ export function createQueryCommandHandlers(deps: QueryDeps) {
 
     const pick = await deps.pickDirectTokenForTask(
       deps.getSingleString(args, "token"),
-      deps.getSingleString(args, "region"),
+      deps.getRegionWithDefault(args),
     );
     const result = await getAssetList(
       pick.token,

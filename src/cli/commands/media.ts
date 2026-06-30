@@ -34,6 +34,7 @@ type MediaDeps = {
     key: string,
   ) => string | undefined;
   getRegionWithDefault: (args: Record<string, unknown>) => string;
+  getRatioWithDefault: (args: Record<string, unknown>) => string;
   toStringList: (raw: unknown) => string[];
   fail: (message: string) => never;
   failWithUsage: (reason: string, usage: string) => never;
@@ -140,6 +141,44 @@ function detectVideoExtension(
   return "mp4";
 }
 
+function splitOutputPath(outputPath: string): {
+  dir: string;
+  name: string | null;
+  ext: string | null;
+} {
+  const normalized = path.resolve(outputPath);
+  if (/[\\/]$/.test(outputPath)) {
+    return { dir: normalized, name: null, ext: null };
+  }
+  const parsed = path.parse(normalized);
+  const ext = parsed.ext ? parsed.ext.slice(1) : null;
+  return {
+    dir: parsed.dir || process.cwd(),
+    name: ext ? parsed.name : parsed.base,
+    ext,
+  };
+}
+
+function outputFilePath(
+  outputPath: string,
+  index: number,
+  total: number,
+  detectedExt: string,
+  fallbackPrefix: string,
+): string {
+  const target = splitOutputPath(outputPath);
+  const ext = target.ext || detectedExt;
+  if (!target.name) {
+    const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
+    return path.join(
+      target.dir,
+      `${fallbackPrefix}-${timestamp}-${String(index + 1).padStart(2, "0")}.${ext}`,
+    );
+  }
+  const suffix = total > 1 ? `-${String(index + 1).padStart(2, "0")}` : "";
+  return path.join(target.dir, `${target.name}${suffix}.${ext}`);
+}
+
 function parsePositiveNumberOption(
   args: Record<string, unknown>,
   key: "wait-timeout-seconds" | "poll-interval-ms",
@@ -209,9 +248,10 @@ async function downloadImages(
   outputDir: string,
   prefix: string,
   deps: Pick<MediaDeps, "fail">,
+  outputPath?: string,
 ): Promise<string[]> {
   const dir = path.resolve(outputDir);
-  await mkdir(dir, { recursive: true });
+  if (!outputPath) await mkdir(dir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
   const saved: string[] = [];
 
@@ -223,8 +263,13 @@ async function downloadImages(
       detectImageExtensionFromBuffer(buffer) ??
       detectImageExtensionFromUrl(imageUrl) ??
       "png";
-    const fileName = `${prefix}-${timestamp}-${String(i + 1).padStart(2, "0")}.${ext}`;
-    const filePath = path.join(dir, fileName);
+    const filePath = outputPath
+      ? outputFilePath(outputPath, i, urls.length, ext, prefix)
+      : path.join(
+          dir,
+          `${prefix}-${timestamp}-${String(i + 1).padStart(2, "0")}.${ext}`,
+        );
+    await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, buffer);
     saved.push(filePath);
   }
@@ -246,15 +291,17 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
         "prompt",
         "model",
         "ratio",
+        "ration",
         "resolution",
         "negative-prompt",
         "sample-strength",
-        "output-dir",
+        "output",
         "wait-timeout-seconds",
         "poll-interval-ms",
       ],
       boolean: ["help", "intelligent-ratio", "wait", "json"],
       default: { wait: true },
+      alias: { p: "prompt", o: "output", m: "model", r: "region" },
     });
 
     if (args.help) {
@@ -269,13 +316,13 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
       deps.usageImageGenerate(),
       deps,
     );
-    const outputDir =
-      deps.getSingleString(args, "output-dir") || "./pic/cli-image-generate";
+    const outputDir = "./pic/cli-image-generate";
+    const outputPath = deps.getSingleString(args, "output");
 
     const body: JsonRecord = {
       prompt,
       model: deps.getSingleString(args, "model") || "jimeng-4.5",
-      ratio: deps.getSingleString(args, "ratio") || "1:1",
+      ratio: deps.getRatioWithDefault(args),
       resolution: deps.getSingleString(args, "resolution") || "2k",
     };
 
@@ -346,6 +393,7 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
       outputDir,
       "jimeng-image-generate",
       deps,
+      outputPath,
     );
     if (isJson) {
       deps.printCommandJson(
@@ -367,15 +415,17 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
         "image",
         "model",
         "ratio",
+        "ration",
         "resolution",
         "negative-prompt",
         "sample-strength",
-        "output-dir",
+        "output",
         "wait-timeout-seconds",
         "poll-interval-ms",
       ],
       boolean: ["help", "intelligent-ratio", "wait", "json"],
       default: { wait: true },
+      alias: { p: "prompt", o: "output", m: "model", r: "region" },
     });
 
     if (args.help) {
@@ -396,10 +446,10 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     if (sources.length > 10)
       deps.fail("At most 10 images are supported for image edit.");
 
-    const outputDir =
-      deps.getSingleString(args, "output-dir") || "./pic/cli-image-edit";
+    const outputDir = "./pic/cli-image-edit";
+    const outputPath = deps.getSingleString(args, "output");
     const model = deps.getSingleString(args, "model") || "jimeng-4.5";
-    const ratio = deps.getSingleString(args, "ratio") || "1:1";
+    const ratio = deps.getRatioWithDefault(args);
     const resolution = deps.getSingleString(args, "resolution") || "2k";
     const negativePrompt = deps.getSingleString(args, "negative-prompt");
     const sampleStrengthRaw = deps.getSingleString(args, "sample-strength");
@@ -477,6 +527,7 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
       outputDir,
       "jimeng-image-edit",
       deps,
+      outputPath,
     );
     if (isJson) {
       deps.printCommandJson(
@@ -503,14 +554,16 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
         ...VIDEO_OMNI_VIDEO_SLOT_KEYS,
         "model",
         "ratio",
+        "ration",
         "resolution",
         "duration",
-        "output-dir",
+        "output",
         "wait-timeout-seconds",
         "poll-interval-ms",
       ],
       boolean: ["help", "wait", "json"],
       default: { wait: true },
+      alias: { p: "prompt", o: "output", m: "model", r: "region" },
     });
 
     if (args.help) {
@@ -536,8 +589,8 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
       failWithUsage: deps.failWithUsage,
     });
 
-    const outputDir =
-      deps.getSingleString(args, "output-dir") || "./pic/cli-video-generate";
+    const outputDir = "./pic/cli-video-generate";
+    const outputPath = deps.getSingleString(args, "output");
     const model =
       deps.getSingleString(args, "model") ||
       (cliMode === "omni_reference"
@@ -553,7 +606,7 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     });
     const functionMode =
       cliMode === "omni_reference" ? "omni_reference" : "first_last_frames";
-    const ratio = deps.getSingleString(args, "ratio") || "1:1";
+    const ratio = deps.getRatioWithDefault(args);
     const resolution = deps.getSingleString(args, "resolution") || "720p";
     const durationRaw = deps.getSingleString(args, "duration") || "5";
     const duration = Number(durationRaw);
@@ -626,14 +679,15 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     const videoUrl: string = result;
 
     const { buffer, contentType } = await downloadBinary(videoUrl, deps);
-    const dir = path.resolve(outputDir);
-    await mkdir(dir, { recursive: true });
-    const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
     const ext = detectVideoExtension(contentType, videoUrl);
-    const filePath = path.join(
-      dir,
-      `jimeng-video-generate-${timestamp}.${ext}`,
-    );
+    const filePath = outputPath
+      ? outputFilePath(outputPath, 0, 1, ext, "jimeng-video-generate")
+      : (() => {
+          const dir = path.resolve(outputDir);
+          const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
+          return path.join(dir, `jimeng-video-generate-${timestamp}.${ext}`);
+        })();
+    await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, buffer);
 
     if (isJson) {
@@ -655,12 +709,13 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
         "image",
         "model",
         "resolution",
-        "output-dir",
+        "output",
         "wait-timeout-seconds",
         "poll-interval-ms",
       ],
       boolean: ["help", "wait", "json"],
       default: { wait: true },
+      alias: { o: "output", m: "model", r: "region" },
     });
 
     if (args.help) {
@@ -674,8 +729,8 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
     if (!imageSource)
       deps.failWithUsage("Missing required --image.", deps.usageImageUpscale());
 
-    const outputDir =
-      deps.getSingleString(args, "output-dir") || "./pic/cli-image-upscale";
+    const outputDir = "./pic/cli-image-upscale";
+    const outputPath = deps.getSingleString(args, "output");
     const model = deps.getSingleString(args, "model") || "jimeng-5.0";
     const resolution = deps.getSingleString(args, "resolution") || "4k";
     const wait = Boolean(args.wait);
@@ -732,6 +787,7 @@ export function createMediaCommandHandlers(deps: MediaDeps): {
       outputDir,
       "jimeng-image-upscale",
       deps,
+      outputPath,
     );
     if (isJson) {
       deps.printCommandJson(

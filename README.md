@@ -16,14 +16,17 @@ npm install -g jimeng-cli
 # 登录并添加 token 到池中（交互式，默认 CN 区）
 jimeng login
 
+# 设置默认区域（后续命令可省略 --region）
+jimeng set region cn
+
 # 登录指定区域
 jimeng login --region us
 
 # 生成图片
-jimeng image generate --prompt "a red fox in snow"
+jimeng image generate -p "a red fox in snow" -o ./pic/fox.png
 
 # 生成视频
-jimeng video generate --prompt "ocean wave at sunset" --wait
+jimeng video generate -p "ocean wave at sunset" -o ./pic/ocean.mp4 --wait
 
 # 查看可用模型
 jimeng models list --verbose
@@ -43,6 +46,20 @@ jimeng models list --all-known --region cn --verbose
 | 香港 | `hk` | dreamina.capcut.com | veo3, veo3.1, sora2, seedance 2.0 |
 | 日本 | `jp` | dreamina.capcut.com | veo3, veo3.1, sora2, seedance 2.0 |
 | 新加坡 | `sg` | dreamina.capcut.com | veo3, veo3.1, sora2, seedance 2.0 |
+
+### 默认区域与比例
+
+可以通过 `set` 命令设置一次默认区域和默认宽高比，之后生成、登录、模型查询和任务查询都可以省略 `--region`，生成命令也可以省略 `--ratio`。
+
+```bash
+jimeng set region cn
+jimeng set ratio 16:9
+jimeng get region
+jimeng get ratio
+jimeng config list
+```
+
+显式 `--region` / `--ratio` 优先级高于默认配置；未设置时区域回退到 `cn`，比例回退到 `1:1`。默认配置保存在 `~/.jimeng/config.json`，也可以通过 `JIMENG_CONFIG_FILE` 指定路径。
 
 ### Token 与区域绑定
 
@@ -208,42 +225,42 @@ jimeng models refresh
 
 ```bash
 # 文生图
-jimeng image generate --prompt "a cat sitting on a windowsill"
+jimeng image generate -p "a cat sitting on a windowsill" -o ./pic/cat.png
 
 # 指定模型和比例
-jimeng image generate --prompt "..." --model jimeng-5.0 --ratio 16:9
+jimeng image generate -p "..." -m jimeng-5.0 --ratio 16:9 -o ./pic/result.png
 
 # 指定区域
-jimeng image generate --prompt "..." --region us
+jimeng image generate -p "..." -r us
 
 # 不等待，直接返回 task ID
-jimeng image generate --prompt "..." --no-wait
+jimeng image generate -p "..." --no-wait
 
 # 高分辨率
-jimeng image generate --prompt "..." --resolution 4k
+jimeng image generate -p "..." --resolution 4k
 
 # 图生图编辑（1-10 张图）
-jimeng image edit --prompt "blend into poster" --image photo1.jpg --image photo2.jpg
+jimeng image edit -p "blend into poster" --image photo1.jpg --image photo2.jpg -o ./pic/poster.png
 
 # 图片放大
-jimeng image upscale --image photo.jpg --resolution 4k
-
-# 下载到指定目录
-jimeng image generate --prompt "..." --output-dir ./output
+jimeng image upscale --image photo.jpg --resolution 4k -o ./pic/photo-4k.png
 ```
+
+`-o, --output <path>` 用于指定输出文件路径。图片生成通常返回多张图，因此 `-o ./pic/cat.png` 会保存为 `./pic/cat-01.png`, `./pic/cat-02.png` 等；单个输出则直接使用指定路径。
 
 通用选项：
 
 | 选项 | 说明 | 默认值 |
 |------|------|--------|
 | `--model` | 模型 | `jimeng-4.5` |
-| `--ratio` | 宽高比 | `1:1` |
+| `--ratio` | 宽高比 | `jimeng set ratio` 或 `1:1` |
 | `--resolution` | 分辨率 | `2k` |
 | `--negative-prompt` | 负面提示词 | - |
-| `--region` | 区域 | `cn` |
+| `--region` | 区域 | `jimeng set region` 或 `cn` |
 | `--token` | 指定 token | 自动选取 |
 | `--wait` / `--no-wait` | 等待完成 | `--wait` |
 | `--json` | JSON 输出 | - |
+| `-o, --output` | 输出文件路径 | 自动生成 |
 
 支持的比例：`1:1`, `4:3`, `3:4`, `16:9`, `9:16`, `3:2`, `2:3`, `21:9`
 
@@ -251,25 +268,25 @@ jimeng image generate --prompt "..." --output-dir ./output
 
 ```bash
 # 文生视频
-jimeng video generate --prompt "ocean wave at sunset" --wait
+jimeng video generate -p "ocean wave at sunset" -o ./pic/ocean.mp4 --wait
 
 # 图生视频
-jimeng video generate --prompt "..." --mode image_to_video --image-file photo.jpg --wait
+jimeng video generate -p "..." --mode image_to_video --image-file photo.jpg --wait
 
 # 首尾帧
-jimeng video generate --prompt "..." --mode first_last_frames --image-file start.jpg --image-file end.jpg --wait
+jimeng video generate -p "..." --mode first_last_frames --image-file start.jpg --image-file end.jpg --wait
 
 # omni_reference 模式（1-9 图 + 0-3 视频）
-jimeng video generate --prompt "..." --mode omni_reference --image-file ref1.jpg --video-file ref1.mp4 --wait
+jimeng video generate -p "..." --mode omni_reference --image-file ref1.jpg --video-file ref1.mp4 --wait
 
 # 指定区域和模型
-jimeng video generate --prompt "..." --model jimeng-video-veo3 --region jp --wait
+jimeng video generate -p "..." -m jimeng-video-veo3 -r jp --wait
 
 # 手动尝试 CN VIP model（需要 token 具备对应权益）
-jimeng video generate --prompt "..." --model jimeng-video-seedance-2.0-vip --region cn --wait
+jimeng video generate -p "..." -m jimeng-video-seedance-2.0-vip -r cn --wait
 
 # 指定时长和比例
-jimeng video generate --prompt "..." --duration 10 --ratio 16:9 --wait
+jimeng video generate -p "..." --duration 10 --ratio 16:9 --wait
 ```
 
 视频模式：
@@ -287,13 +304,14 @@ jimeng video generate --prompt "..." --duration 10 --ratio 16:9 --wait
 |------|------|--------|
 | `--model` | 模型 | 按模式自动选择 |
 | `--mode` | 生成模式 | `text_to_video` |
-| `--ratio` | 宽高比 | `1:1` |
+| `--ratio` | 宽高比 | `jimeng set ratio` 或 `1:1` |
 | `--duration` | 时长（秒） | `5` |
 | `--resolution` | 分辨率 | `720p` |
-| `--region` | 区域 | `cn` |
+| `--region` | 区域 | `jimeng set region` 或 `cn` |
 | `--token` | 指定 token | 自动选取 |
 | `--wait` / `--no-wait` | 等待完成 | `--wait` |
 | `--json` | JSON 输出 | - |
+| `-o, --output` | 输出文件路径 | 自动生成 |
 
 ## 任务查询
 
@@ -310,6 +328,16 @@ jimeng task wait --task-id <id> --wait-timeout-seconds 120
 jimeng task list
 jimeng task list --type video --count 50 --json
 ```
+
+## Hermes Agent / Skills
+
+如果通过 hermes-agent 使用 CLI，请加载项目内的 skill 文档：
+
+```text
+skills/jimeng-cli/SKILL.md
+```
+
+该 skill 只走 `jimeng` 命令行，不依赖 MCP；它包含生成前 token 预检、模型/区域选择、JSON 输出解析，以及 `[登录失效]: check login error` 这类登录失效问题的恢复流程。
 
 ## MCP Server
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Jimeng CLI"
+  short_description: "Generate images and videos with jimeng-cli"
+  default_prompt: "Use $jimeng-cli to generate an image or video with the local jimeng CLI."

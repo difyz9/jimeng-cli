@@ -90,9 +90,7 @@ export function createLoginCommandHandler(
     console.log("  1. Login at https://jimeng.jianying.com/ai-tool/home/");
     console.log("  2. Open DevTools > Application > Cookies > sessionid");
     console.log("");
-    console.log(
-      "Then run: jimeng login --sessionid <your_sessionid> --region cn",
-    );
+    console.log("Then run: jimeng login --sessionid <your_sessionid>");
     console.log("");
     console.log("Or install Python 3 to use the automatic browser login.");
   };
@@ -269,7 +267,7 @@ function usageLogin(): string {
     "  jimeng login [options]",
     "",
     "Options:",
-    "  --region <region>        Region for the token (default cn)",
+    "  --region <region>        Region for the token (default from `jimeng set region` or cn)",
     "  --sessionid <token>      Add sessionid directly (skip browser login)",
     "  --debug-port <port>      Chrome debug port (default 9333)",
     "  --headless              Run Chrome in headless mode",
