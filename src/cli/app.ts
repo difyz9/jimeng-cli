@@ -14,6 +14,7 @@ import {
 import { createQueryCommandHandlers } from "@/cli/commands/query.ts";
 import { createMediaCommandHandlers } from "@/cli/commands/media.ts";
 import { createLoginCommandHandler } from "@/cli/commands/login.ts";
+import { createArkCommandHandlers } from "@/cli/commands/ark.ts";
 import {
   getCliConfigFilePath,
   getDefaultRatio,
@@ -278,6 +279,48 @@ function usageVideoGenerate(): string {
           "  - omni_reference: 1-9 images and 0-3 videos (at least one material).",
           "  - omni_reference supports model jimeng-video-seedance-2.0 or jimeng-video-seedance-2.0-fast.",
           "  - Use @image_file_N / @video_file_N in prompt for omni_reference.",
+        ],
+      },
+    ],
+  );
+}
+
+function usageArkGenerate(): string {
+  return buildUsageText(
+    "  jimeng ark generate --prompt <text> [options]",
+    [
+      "  --api-key <key>          Ark API Key, optional, default from env ARK_API_KEY",
+      "  -p, --prompt <text>      Required",
+      "  --model <model>          Default doubao-seedance-2-0-mini-260615",
+      "  --image-url <url>        Reference image URL, can be repeated (max 9)",
+      "  --video-url <url>        Reference video URL, can be repeated (max 3)",
+      "  --audio-url <url>        Reference audio URL, can be repeated (max 3)",
+      "  --generate-audio         Enable background audio generation (default on)",
+      "  --no-audio               Disable background audio generation",
+      "  --ratio <ratio>          Aspect ratio, default 16:9",
+      "  --duration <seconds>     Video duration, default 11",
+      "  --watermark              Enable watermark",
+      "  --no-watermark           Disable watermark (default)",
+      "  --wait / --no-wait       Default wait; --no-wait returns task only",
+      "  --wait-timeout-seconds   Optional wait timeout override",
+      "  --poll-interval-ms       Optional poll interval override",
+      JSON_OPTION,
+      "  -o, --output <path>      Save to file path",
+      HELP_OPTION,
+    ],
+    [
+      {
+        title: "Examples:",
+        lines: [
+          '  jimeng ark generate --prompt "一段茶饮宣传视频" --image-url https://...jpg --video-url https://...mp4 --audio-url https://...mp3',
+        ],
+      },
+      {
+        title: "Notes:",
+        lines: [
+          "  - Uses Volcengine Ark API (ark.cn-beijing.volces.com).",
+          "  - Supports seedance 2.0 mini model for multimodal video generation.",
+          "  - Reference images (max 9), videos (max 3), and audio (max 3) are supported.",
         ],
       },
     ],
@@ -615,6 +658,24 @@ const queryHandlers = createQueryCommandHandlers({
   unwrapBody,
 });
 
+const arkHandlers = createArkCommandHandlers({
+  usageArkGenerate,
+  getSingleString,
+  toStringList,
+  fail,
+  failWithUsage,
+  printCommandJson,
+  printDownloadSummary: (kind, files) => {
+    if (kind === "video") {
+      const label = "video";
+      console.log(`Downloaded ${files.length} ${label}.`);
+      for (const file of files) {
+        console.log(`- ${file}`);
+      }
+    }
+  },
+});
+
 const mediaHandlers = createMediaCommandHandlers({
   usageImageGenerate,
   usageImageEdit,
@@ -663,6 +724,18 @@ type CommandSpec = {
 };
 
 const COMMAND_SPECS: CommandSpec[] = [
+  {
+    name: "ark",
+    description: "Ark video generation (Volcengine API)",
+    subcommands: [
+      {
+        name: "generate",
+        description: "Generate video via Ark API with multimodal inputs",
+        handler: arkHandlers.handleArkGenerate,
+      },
+    ],
+    usage: usageRoot,
+  },
   {
     name: "set",
     description: "Set CLI preferences",

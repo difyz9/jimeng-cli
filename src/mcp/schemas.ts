@@ -182,3 +182,73 @@ export const listTasksInputSchema = z.object({
   count: z.number().int().positive().max(100).optional(),
   token: z.string().optional(),
 });
+
+// ============================== Ark API Schemas ==============================
+
+export const generateArkVideoInputSchema = z.object({
+  prompt: z.string().min(1).describe("文本 prompt"),
+  model: z
+    .string()
+    .optional()
+    .describe(
+      '模型名称，默认 "doubao-seedance-2-0-mini-260615"',
+    ),
+  image_urls: z
+    .array(z.string().url())
+    .max(9)
+    .optional()
+    .describe("参考图片 URL 列表"),
+  video_urls: z
+    .array(z.string().url())
+    .max(3)
+    .optional()
+    .describe("参考视频 URL 列表"),
+  audio_urls: z
+    .array(z.string().url())
+    .max(3)
+    .optional()
+    .describe("参考音频 URL 列表"),
+  generate_audio: z
+    .boolean()
+    .optional()
+    .describe("是否生成背景音频，默认 true"),
+  ratio: z
+    .string()
+    .optional()
+    .describe("画面比例，如 16:9, 9:16, 1:1，默认 16:9"),
+  duration: z
+    .number()
+    .int()
+    .min(4)
+    .max(15)
+    .optional()
+    .describe("视频时长（秒），默认 11"),
+  watermark: z
+    .boolean()
+    .optional()
+    .describe("是否添加水印，默认 false"),
+  api_key: z
+    .string()
+    .optional()
+    .describe("Ark API Key，可选，默认从环境变量 ARK_API_KEY 读取"),
+  wait: z
+    .boolean()
+    .optional()
+    .describe("是否等待任务完成，默认 true"),
+  wait_timeout_seconds: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("等待超时秒数"),
+  poll_interval_ms: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("轮询间隔毫秒数"),
+  confirm: z
+    .string()
+    .optional()
+    .describe("确认标记，设为 RUN 跳过确认"),
+});
