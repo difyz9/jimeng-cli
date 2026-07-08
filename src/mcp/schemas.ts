@@ -185,29 +185,14 @@ export const listTasksInputSchema = z.object({
 
 // ============================== Ark API Schemas ==============================
 
-export const generateArkVideoInputSchema = z.object({
-  prompt: z.string().min(1).describe("文本 prompt"),
+/** Ark 视频任务共享参数 */
+const arkCommonParams = {
   model: z
     .string()
     .optional()
     .describe(
-      '模型名称，默认 "doubao-seedance-2-0-mini-260615"',
+      '模型 ID。doubao-seedance-2-0-260128 / doubao-seedance-2-0-fast-260128 / doubao-seedance-2-0-mini-260615（默认）',
     ),
-  image_urls: z
-    .array(z.string().url())
-    .max(9)
-    .optional()
-    .describe("参考图片 URL 列表"),
-  video_urls: z
-    .array(z.string().url())
-    .max(3)
-    .optional()
-    .describe("参考视频 URL 列表"),
-  audio_urls: z
-    .array(z.string().url())
-    .max(3)
-    .optional()
-    .describe("参考音频 URL 列表"),
   generate_audio: z
     .boolean()
     .optional()
@@ -215,22 +200,48 @@ export const generateArkVideoInputSchema = z.object({
   ratio: z
     .string()
     .optional()
-    .describe("画面比例，如 16:9, 9:16, 1:1，默认 16:9"),
+    .describe("画面比例：16:9, 9:16, 4:3, 3:4, 21:9, 1:1, adaptive。默认 16:9"),
   duration: z
     .number()
     .int()
     .min(4)
     .max(15)
     .optional()
-    .describe("视频时长（秒），默认 11"),
+    .describe("视频时长（秒），4~15，默认 5"),
+  resolution: z
+    .string()
+    .optional()
+    .describe("分辨率：480p, 720p（默认）, 1080p（仅 2.0）, 4k（仅 2.0）"),
   watermark: z
     .boolean()
     .optional()
     .describe("是否添加水印，默认 false"),
+  return_last_frame: z
+    .boolean()
+    .optional()
+    .describe("是否返回尾帧图像（PNG），默认 false"),
+  seed: z
+    .number()
+    .int()
+    .optional()
+    .describe("随机种子，控制生成的一致性"),
+  camera_fixed: z
+    .boolean()
+    .optional()
+    .describe("是否固定镜头，默认 false"),
+  service_tier: z
+    .string()
+    .optional()
+    .describe('服务等级："standard"（在线推理、默认）, "flex"（离线推理）'),
+  callback_url: z
+    .string()
+    .url()
+    .optional()
+    .describe("任务完成回调 URL"),
   api_key: z
     .string()
     .optional()
-    .describe("Ark API Key，可选，默认从环境变量 ARK_API_KEY 读取"),
+    .describe("Ark API Key，默认从环境变量 ARK_API_KEY 读取"),
   wait: z
     .boolean()
     .optional()
@@ -247,6 +258,114 @@ export const generateArkVideoInputSchema = z.object({
     .positive()
     .optional()
     .describe("轮询间隔毫秒数"),
+  confirm: z
+    .string()
+    .optional()
+    .describe("确认标记，设为 RUN 跳过确认"),
+};
+
+/** 多模态参考 / 文生视频 / 图生视频 */
+export const generateArkVideoInputSchema = z.object({
+  prompt: z.string().min(1).describe("文本 prompt"),
+  image_urls: z
+    .array(z.string().url())
+    .max(9)
+    .optional()
+    .describe("参考图片 URL（多模态参考传 reference_image，图生视频首帧传 first_frame）"),
+  video_urls: z
+    .array(z.string().url())
+    .max(3)
+    .optional()
+    .describe("参考视频 URL"),
+  audio_urls: z
+    .array(z.string().url())
+    .max(3)
+    .optional()
+    .describe("参考音频 URL"),
+  ...arkCommonParams,
+});
+
+/** 视频编辑 */
+export const editArkVideoInputSchema = z.object({
+  prompt: z.string().min(1).describe('编辑指令，例如："将视频1礼盒中的香水替换成图片1中的面霜"'),
+  video_urls: z
+    .array(z.string().url())
+    .min(1)
+    .max(3)
+    .describe("待编辑的视频 URL（必填，至少 1 个）"),
+  image_urls: z
+    .array(z.string().url())
+    .max(9)
+    .optional()
+    .describe("参考图片 URL（用于替换/参考内容）"),
+  audio_urls: z
+    .array(z.string().url())
+    .max(3)
+    .optional()
+    .describe("参考音频 URL"),
+  ...arkCommonParams,
+});
+
+/** 视频延长 */
+export const extendArkVideoInputSchema = z.object({
+  prompt: z.string().min(1).describe("视频连贯拼接的文本描述"),
+  video_urls: z
+    .array(z.string().url())
+    .min(1)
+    .max(3)
+    .describe("待延长的视频 URL（最多 3 个，按顺序拼接）"),
+  image_urls: z
+    .array(z.string().url())
+    .max(9)
+    .optional()
+    .describe("参考图片 URL"),
+  audio_urls: z
+    .array(z.string().url())
+    .max(3)
+    .optional()
+    .describe("参考音频 URL"),
+  ...arkCommonParams,
+});
+
+// ============================== Ark Image Generation Schema ==============================
+
+/** 文生图 / 图文生图 / 多图融合 / 组图生成 */
+export const generateArkImageInputSchema = z.object({
+  prompt: z.string().min(1).describe("图片描述 prompt"),
+  model: z
+    .string()
+    .optional()
+    .describe(
+      '模型 ID: doubao-seedream-5-0-pro-260628 / doubao-seedream-5-0-260128（默认） / doubao-seedream-4-5-251128 / doubao-seedream-4-0-250828',
+    ),
+  image_urls: z
+    .union([z.string().url(), z.array(z.string().url()).max(15)])
+    .optional()
+    .describe("参考图片 URL（单张或多张，用于图文生图/多图融合）"),
+  size: z
+    .string()
+    .optional()
+    .describe("图片尺寸：1K, 2K（默认）, 3K, 4K"),
+  output_format: z
+    .enum(["png", "jpeg"])
+    .optional()
+    .describe("输出格式：png（默认）, jpeg"),
+  watermark: z.boolean().optional().describe("是否添加水印，默认 false"),
+  sequential_image_generation: z
+    .string()
+    .optional()
+    .describe('组图模式："disabled"（默认单图）, "auto"（组图）'),
+  max_images: z
+    .number()
+    .int()
+    .min(2)
+    .max(15)
+    .optional()
+    .describe("组图模式下的最大图片数量"),
+  api_key: z
+    .string()
+    .optional()
+    .describe("Ark API Key，默认从环境变量 ARK_API_KEY 读取"),
   confirm: z
     .string()
     .optional()

@@ -1,6 +1,6 @@
 import type { ToolDeps } from "../types.ts";
 import { registerEditImageTool } from "./edit-image.ts";
-import { registerGenerateArkVideoTool } from "./generate-video-ark.ts";
+import { registerArkVideoTools } from "./generate-video-ark.ts";
 import { registerGenerateImageTool } from "./generate-image.ts";
 import { registerGenerateVideoOmniTool } from "./generate-video-omni.ts";
 import { registerGenerateVideoTool } from "./generate-video.ts";
@@ -20,10 +20,11 @@ export interface McpToolManifestItem {
 export const MCP_TOOL_MANIFEST: McpToolManifestItem[] = [
   { id: "health_check", register: registerHealthCheckTool },
   { id: "list_models", register: registerListModelsTool },
-  { id: "generate_video_ark", register: registerGenerateArkVideoTool },
   { id: "get_task", register: registerGetTaskTool },
   { id: "wait_task", register: registerWaitTaskTool },
   { id: "list_tasks", register: registerListTasksTool },
+  { id: "ark_video", register: registerArkVideoTools },
+  { id: "ark_image", register: registerArkVideoTools },
   { id: "generate_image", register: registerGenerateImageTool },
   { id: "upscale_image", isAdvanced: true, register: registerUpscaleImageTool },
   { id: "edit_image", isAdvanced: true, register: registerEditImageTool },

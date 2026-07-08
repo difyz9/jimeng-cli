@@ -289,38 +289,147 @@ function usageArkGenerate(): string {
   return buildUsageText(
     "  jimeng ark generate --prompt <text> [options]",
     [
-      "  --api-key <key>          Ark API Key, optional, default from env ARK_API_KEY",
-      "  -p, --prompt <text>      Required",
-      "  --model <model>          Default doubao-seedance-2-0-mini-260615",
-      "  --image-url <url>        Reference image URL, can be repeated (max 9)",
-      "  --video-url <url>        Reference video URL, can be repeated (max 3)",
-      "  --audio-url <url>        Reference audio URL, can be repeated (max 3)",
-      "  --generate-audio         Enable background audio generation (default on)",
-      "  --no-audio               Disable background audio generation",
-      "  --ratio <ratio>          Aspect ratio, default 16:9",
-      "  --duration <seconds>     Video duration, default 11",
-      "  --watermark              Enable watermark",
-      "  --no-watermark           Disable watermark (default)",
-      "  --wait / --no-wait       Default wait; --no-wait returns task only",
-      "  --wait-timeout-seconds   Optional wait timeout override",
-      "  --poll-interval-ms       Optional poll interval override",
+      "  --api-key <key>           Ark API Key，默认从环境变量 ARK_API_KEY 读取",
+      "  -p, --prompt <text>       必填，文本描述",
+      "  --model <model>           模型 ID",
+      "                             doubao-seedance-2-0-260128",
+      "                             doubao-seedance-2-0-fast-260128",
+      "                             doubao-seedance-2-0-mini-260615（默认）",
+      "  --image-url <url>         参考图片 URL，可重复（最多 9 个）",
+      "                             - 多模态参考传 reference_image",
+      "                             - 图生视频首帧传 first_frame（1 个）",
+      "                             - 首尾帧传 first_frame + last_frame（2 个）",
+      "  --video-url <url>         参考视频 URL，可重复（最多 3 个）",
+      "  --audio-url <url>         参考音频 URL，可重复（最多 3 个）",
+      "  --generate-audio          开启背景音频生成（默认开启）",
+      "  --no-audio                关闭背景音频生成",
+      "  --ratio <ratio>           画面比例：16:9, 9:16, 4:3, 3:4, 21:9, 1:1, adaptive",
+      "                             默认 16:9",
+      "  --duration <seconds>      视频时长（秒），4~15，默认 5",
+      "  --resolution <res>        分辨率：480p, 720p（默认）, 1080p, 4k",
+      "                             1080p/4k 仅 Seedance 2.0 支持",
+      "  --watermark               添加水印（默认不添加）",
+      "  --return-last-frame       返回尾帧 PNG 图像（默认不返回）",
+      "  --seed <num>              随机种子，控制生成一致性",
+      "  --camera-fixed            固定镜头（默认不固定）",
+      "  --service-tier <tier>     服务等级：standard（默认）、flex（离线推理）",
+      "  --callback-url <url>      任务完成回调 URL",
+      "  --wait / --no-wait        默认等待完成；--no-wait 仅返回 taskId",
+      "  --wait-timeout-seconds    可选，等待超时秒数",
+      "  --poll-interval-ms        可选，轮询间隔毫秒数",
       JSON_OPTION,
-      "  -o, --output <path>      Save to file path",
+      "  -o, --output <path>       保存到文件路径",
       HELP_OPTION,
     ],
     [
       {
-        title: "Examples:",
+        title: "示例:",
         lines: [
-          '  jimeng ark generate --prompt "一段茶饮宣传视频" --image-url https://...jpg --video-url https://...mp4 --audio-url https://...mp3',
+          '  jimeng ark generate -p "茶饮宣传视频" --image-url https://...jpg --video-url https://...mp4',
+          '  jimeng ark generate -p "一只猫" --no-wait',
+          '  jimeng ark generate -p "向日葵" --image-url https://...jpg --image-role first_frame --duration 8 --resolution 1080p',
         ],
       },
+    ],
+  );
+}
+
+function usageArkEdit(): string {
+  return buildUsageText(
+    "  jimeng ark edit --prompt <text> --video-url <url> [options]",
+    [
+      "  --api-key <key>           Ark API Key，默认从环境变量 ARK_API_KEY 读取",
+      '  -p, --prompt <text>       必填，编辑指令（如"将礼盒中的香水替换成面霜"）',
+      "  --video-url <url>         必填，待编辑的视频 URL（至少 1 个）",
+      "  --image-url <url>         参考图片 URL，可重复（最多 9 个）",
+      "  --audio-url <url>         参考音频 URL，可重复（最多 3 个）",
+      "  --model <model>           模型 ID，默认 doubao-seedance-2-0-mini-260615",
+      "  --generate-audio          开启背景音频生成（默认开启）",
+      "  --no-audio                关闭背景音频生成",
+      "  --ratio <ratio>           画面比例，默认 16:9",
+      "  --duration <seconds>      视频时长（秒），4~15，默认 5",
+      "  --resolution <res>        分辨率：480p, 720p（默认）, 1080p, 4k",
+      "  --watermark               添加水印",
+      "  --return-last-frame       返回尾帧 PNG",
+      "  --seed <num>              随机种子",
+      "  --camera-fixed            固定镜头",
+      "  --wait / --no-wait        默认等待完成",
+      JSON_OPTION,
+      "  -o, --output <path>       保存到文件路径",
+      HELP_OPTION,
+    ],
+    [
       {
-        title: "Notes:",
+        title: "示例:",
         lines: [
-          "  - Uses Volcengine Ark API (ark.cn-beijing.volces.com).",
-          "  - Supports seedance 2.0 mini model for multimodal video generation.",
-          "  - Reference images (max 9), videos (max 3), and audio (max 3) are supported.",
+          '  jimeng ark edit -p "将视频1中的香水替换成图片1中的面霜" --video-url https://...mp4 --image-url https://...jpg',
+        ],
+      },
+    ],
+  );
+}
+
+function usageArkExtend(): string {
+  return buildUsageText(
+    "  jimeng ark extend --prompt <text> --video-url <url> [options]",
+    [
+      "  --api-key <key>           Ark API Key，默认从环境变量 ARK_API_KEY 读取",
+      "  -p, --prompt <text>       必填，视频延长描述",
+      "  --video-url <url>         必填，待延长的视频 URL（1~3 个，按顺序串联）",
+      "  --image-url <url>         参考图片 URL，可重复（最多 9 个）",
+      "  --audio-url <url>         参考音频 URL，可重复（最多 3 个）",
+      "  --model <model>           模型 ID，默认 doubao-seedance-2-0-mini-260615",
+      "  --generate-audio          开启背景音频生成（默认开启）",
+      "  --no-audio                关闭背景音频生成",
+      "  --ratio <ratio>           画面比例，默认 16:9",
+      "  --duration <seconds>      视频时长（秒），4~15，默认 5",
+      "  --resolution <res>        分辨率：480p, 720p（默认）, 1080p, 4k",
+      "  --watermark               添加水印",
+      "  --seed <num>              随机种子",
+      "  --wait / --no-wait        默认等待完成",
+      JSON_OPTION,
+      "  -o, --output <path>       保存到文件路径",
+      HELP_OPTION,
+    ],
+    [
+      {
+        title: "示例:",
+        lines: [
+          '  jimeng ark extend -p "窗户打开进入室内接视频2" --video-url https://...1.mp4 --video-url https://...2.mp4',
+        ],
+      },
+    ],
+  );
+}
+
+function usageArkImage(): string {
+  return buildUsageText(
+    "  jimeng ark image --prompt <text> [options]",
+    [
+      "  --api-key <key>            Ark API Key，默认从环境变量 ARK_API_KEY 读取",
+      "  -p, --prompt <text>        必填，图片描述",
+      "  --model <model>            模型 ID",
+      "                              doubao-seedream-5-0-pro-260628",
+      "                              doubao-seedream-5-0-260128（默认）",
+      "                              doubao-seedream-4-5-251128",
+      "                              doubao-seedream-4-0-250828",
+      "  --image-url <url>          参考图片 URL（单张或多张，用于图生图 / 多图融合）",
+      "  --size <size>              图片尺寸：1K, 2K（默认）, 3K, 4K",
+      "  --output-format <fmt>      输出格式：png（默认）, jpeg",
+      "  --watermark                添加水印（默认不添加）",
+      "  --sequential-image-generation <mode>",
+      "                              组图模式：disabled（默认单图）, auto（组图）",
+      "  --max-images <num>         组图模式最大图片数（默认 4）",
+      JSON_OPTION,
+      HELP_OPTION,
+    ],
+    [
+      {
+        title: "示例:",
+        lines: [
+          '  jimeng ark image -p "一只猫在阳光下"',
+          '  jimeng ark image -p "换装" --image-url https://...model.png --image-url https://...cloth.png',
+          '  jimeng ark image -p "4张分镜" --sequential-image-generation auto --max-images 4',
         ],
       },
     ],
@@ -660,6 +769,9 @@ const queryHandlers = createQueryCommandHandlers({
 
 const arkHandlers = createArkCommandHandlers({
   usageArkGenerate,
+  usageArkEdit,
+  usageArkExtend,
+  usageArkImage,
   getSingleString,
   toStringList,
   fail,
@@ -726,12 +838,27 @@ type CommandSpec = {
 const COMMAND_SPECS: CommandSpec[] = [
   {
     name: "ark",
-    description: "Ark video generation (Volcengine API)",
+    description: "Ark API (Volcengine Seedance/Seedream)",
     subcommands: [
       {
         name: "generate",
         description: "Generate video via Ark API with multimodal inputs",
         handler: arkHandlers.handleArkGenerate,
+      },
+      {
+        name: "edit",
+        description: "Edit video via Ark API (replace/alter content)",
+        handler: arkHandlers.handleArkEdit,
+      },
+      {
+        name: "extend",
+        description: "Extend/stitch videos via Ark API",
+        handler: arkHandlers.handleArkExtend,
+      },
+      {
+        name: "image",
+        description: "Generate image via Ark Seedream API",
+        handler: arkHandlers.handleArkImage,
       },
     ],
     usage: usageRoot,

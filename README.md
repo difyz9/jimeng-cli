@@ -329,6 +329,181 @@ jimeng task list
 jimeng task list --type video --count 50 --json
 ```
 
+## Ark API（火山引擎 Seedance / Seedream）
+
+当前项目同时集成了火山引擎 Ark API 的视频与图像生成能力，通过独立的 `ark` 子命令和对应的 MCP 工具对外暴露。与即梦（Dreamina）API 使用不同的认证方式——只需一个 **API Key**。
+
+### 配置
+
+```bash
+# 设置 API Key（建议写入 shell 配置文件）
+export ARK_API_KEY="your_api_key_here"
+
+# 或每次命令指定
+jimeng ark generate -p "..." --api-key "your_api_key_here"
+```
+
+获取 API Key：访问 [火山引擎方舟平台 API Key 管理](https://console.volcengine.com/ark/region:ark+cn-beijing/apikey)。
+
+### 可用模型
+
+**视频生成（Seedance 2.0 系列）：**
+
+| 模型 | Model ID | 分辨率 | 说明 |
+|------|---------|--------|------|
+| Seedance 2.0 | `doubao-seedance-2-0-260128` | 480p~4K | 最高品质 |
+| Seedance 2.0 Fast | `doubao-seedance-2-0-fast-260128` | 480p~720p | 速度优先 |
+| Seedance 2.0 Mini | `doubao-seedance-2-0-mini-260615` | 480p~720p | 低成本（默认） |
+
+**图像生成（Seedream 系列）：**
+
+| 模型 | Model ID | 分辨率 | 说明 |
+|------|---------|--------|------|
+| Seedream 5.0 Pro | `doubao-seedream-5-0-pro-260628` | 1K~2K | 高精度，图文/多图 |
+| Seedream 5.0 Lite | `doubao-seedream-5-0-260128` | 2K~4K | 默认，支持组图 |
+| Seedream 4.5 | `doubao-seedream-4-5-251128` | 2K~4K | 稳定版 |
+| Seedream 4.0 | `doubao-seedream-4-0-250828` | 1K~4K | 经典版 |
+
+---
+
+### 视频生成 — `jimeng ark generate`
+
+多模态参考 / 文生视频 / 图生视频。支持文本 + 图片(0~9) + 视频(0~3) + 音频(0~3) 任意组合输入。
+
+```bash
+# 文生视频
+jimeng ark generate -p "海边日落" --duration 5 --ratio 16:9
+
+# 多模态参考（图片 + 视频 + 音频）
+jimeng ark generate -p "全程使用视频1的第一视角构图" \
+  --image-url https://...pic1.jpg \
+  --image-url https://...pic2.jpg \
+  --video-url https://...video.mp4 \
+  --audio-url https://...audio.mp3 \
+  --ratio 16:9 --duration 11 --generate-audio
+
+# 图生视频-首帧
+jimeng ark generate -p "镜头推近" --image-url https://...start.jpg
+
+# 图生视频-首尾帧
+jimeng ark generate -p "转场" --image-url https://...first.jpg --image-url https://...last.jpg
+
+# 异步提交（不等待）
+jimeng ark generate -p "一只猫" --no-wait
+```
+
+可选参数：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--model` | 模型 ID | `doubao-seedance-2-0-mini-260615` |
+| `--ratio` | 画面比例 | `16:9` |
+| `--duration` | 视频时长（秒），4~15 | `5` |
+| `--resolution` | 分辨率：480p/720p/1080p/4K | `720p` |
+| `--generate-audio` / `--no-audio` | 是否生成背景音频 | 开启 |
+| `--watermark` | 是否添加水印 | 不添加 |
+| `--return-last-frame` | 返回尾帧 PNG | 不返回 |
+| `--seed` | 随机种子 | - |
+| `--camera-fixed` | 固定镜头 | 不固定 |
+| `--service-tier` | standard / flex（离线推理） | standard |
+| `--callback-url` | 任务回调 URL | - |
+
+---
+
+### 视频编辑 — `jimeng ark edit`
+
+基于参考图片和文本指令编辑视频（替换主体、增删元素等）。
+
+```bash
+# 替换视频中的元素
+jimeng ark edit -p "将视频1中的香水替换成图片1中的面霜" \
+  --video-url https://...video.mp4 \
+  --image-url https://...product.jpg
+
+# 增/删元素
+jimeng ark edit -p "在台面上添加炸鸡和披萨" \
+  --video-url https://...video.mp4
+```
+
+---
+
+### 视频延长 — `jimeng ark extend`
+
+向前/向后延长视频，或将多个视频片段串联。
+
+```bash
+# 向后延长
+jimeng ark extend -p "生成视频1之后的内容" \
+  --video-url https://...video.mp4
+
+# 多个视频拼接
+jimeng ark extend -p "接视频2" \
+  --video-url https://...part1.mp4 \
+  --video-url https://...part2.mp4
+```
+
+---
+
+### 图像生成 — `jimeng ark image`
+
+OpenAI 兼容的文生图 / 图文生图 / 多图融合 / 组图生成。使用 Seedream 系列模型。
+
+```bash
+# 文生图
+jimeng ark image -p "一只猫在阳光下"
+
+# 单参考图编辑
+jimeng ark image -p "将服装材质改为透明清水" \
+  --image-url https://...photo.jpg
+
+# 多图融合（换装/融合风格）
+jimeng ark image -p "将图1的服装换为图2的服装" \
+  --image-url https://...model.png \
+  --image-url https://...cloth.png
+
+# 组图生成（4 张电影分镜）
+jimeng ark image -p "4张科幻片分镜..." \
+  --sequential-image-generation auto \
+  --max-images 4
+
+# 指定型号和参数
+jimeng ark image -p "产品图" \
+  --model doubao-seedream-5-0-pro-260628 \
+  --size 4K --output-format png --json
+```
+
+可选参数：
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--model` | 模型 ID | `doubao-seedream-5-0-260128` |
+| `--size` | 图片尺寸：1K/2K/3K/4K | `2K` |
+| `--output-format` | 输出格式：png/jpeg | `png` |
+| `--watermark` | 添加水印 | 不添加 |
+| `--sequential-image-generation` | 组图模式：disabled/auto | `disabled` |
+| `--max-images` | 组图最大图片数 | - |
+
+---
+
+### MCP 工具
+
+当通过 MCP Server 使用时，以下工具可用（需要在环境变量中设置 `ARK_API_KEY` 或在工具参数中传入 `api_key`）：
+
+| 工具名 | 说明 |
+|--------|------|
+| `ark_generate` | 多模态视频生成 |
+| `ark_edit` | 视频编辑 |
+| `ark_extend` | 视频延长 |
+| `ark_image` | 文生图 / 图文生图 / 多图融合 / 组图 |
+
+MCP Server 环境变量：
+
+| 变量 | 说明 |
+|------|------|
+| `ARK_API_KEY` | Ark API Key，工具调用时可省略 `api_key` 参数 |
+| `JIMENG_API_TOKEN` | 即梦 API Token |
+| `MCP_REQUIRE_RUN_CONFIRM` | 运行前确认 | `true` |
+
 ## Hermes Agent / Skills
 
 如果通过 hermes-agent 使用 CLI，请加载项目内的 skill 文档：

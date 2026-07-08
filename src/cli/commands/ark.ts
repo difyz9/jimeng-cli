@@ -1,12 +1,25 @@
 import minimist from "minimist";
 
-import { generateArkVideo } from "@/api/services/ark.ts";
-import { ARK_DEFAULT_MODEL } from "@/api/constants/ark.ts";
+import {
+  generateArkVideo,
+  editArkVideo,
+  extendArkVideo,
+  generateArkImage,
+} from "@/api/services/ark.ts";
+import {
+  ARK_DEFAULT_MODEL,
+  ARK_DEFAULT_IMAGE_MODEL,
+  ARK_MODEL_IDS,
+} from "@/api/constants/ark.ts";
 
 type JsonRecord = Record<string, unknown>;
+type CliMode = "generate" | "edit" | "extend" | "image";
 
 type ArkDeps = {
   usageArkGenerate: () => string;
+  usageArkEdit: () => string;
+  usageArkExtend: () => string;
+  usageArkImage: () => string;
   getSingleString: (
     args: Record<string, unknown>,
     key: string,
@@ -18,22 +31,21 @@ type ArkDeps = {
   printDownloadSummary: (kind: "video", files: string[]) => void;
 };
 
-function resolveApiKey(options: {
-  apiKeyFromArg?: string;
-  envKey: string;
-  fail: (msg: string) => never;
-}): string {
-  if (options.apiKeyFromArg) return options.apiKeyFromArg;
-  const envValue = process.env[options.envKey]?.trim();
+function resolveApiKey(
+  apiKeyFromArg: string | undefined,
+  fail: (msg: string) => never,
+): string {
+  if (apiKeyFromArg) return apiKeyFromArg;
+  const envValue = process.env.ARK_API_KEY?.trim();
   if (envValue) return envValue;
-  options.fail(
-    `Ark API Key is required. Set ${options.envKey} environment variable or pass --api-key.`,
+  fail(
+    "Ark API Key is required. Set ARK_API_KEY environment variable or pass --api-key.",
   );
 }
 
 async function downloadBinary(
   url: string,
-  deps: Pick<ArkDeps, "fail">,
+  fail: (msg: string) => never,
 ): Promise<Buffer> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
@@ -43,172 +55,334 @@ async function downloadBinary(
   } catch (err: any) {
     clearTimeout(timeout);
     if (err.name === "AbortError") {
-      deps.fail(`Download timed out after 120s: ${url}`);
+      fail(`Download timed out after 120s: ${url}`);
     }
     throw err;
   }
   clearTimeout(timeout);
   if (!response.ok) {
-    deps.fail(`Download failed (${response.status}): ${url}`);
+    fail(`Download failed (${response.status}): ${url}`);
   }
   return Buffer.from(await response.arrayBuffer());
 }
 
-export function createArkCommandHandlers(deps: ArkDeps): {
-  handleArkGenerate: (argv: string[]) => Promise<void>;
-} {
-  const handleArkGenerate = async (argv: string[]): Promise<void> => {
-    const usage = deps.usageArkGenerate();
-    const args = minimist(argv, {
-      string: [
-        "api-key",
-        "prompt",
-        "model",
-        "image-url",
-        "video-url",
-        "audio-url",
-        "ratio",
-        "duration",
-        "wait-timeout-seconds",
-        "poll-interval-ms",
-        "output",
-      ],
-      boolean: [
-        "help",
-        "generate-audio",
-        "no-audio",
-        "watermark",
-        "no-watermark",
-        "wait",
-        "no-wait",
-        "json",
-      ],
-      default: { wait: true, "generate-audio": true },
-      alias: { p: "prompt", o: "output" },
-    });
+function parsePositiveNumber(
+  raw: string | undefined,
+  label: string,
+  fail: (msg: string) => never,
+): number | undefined {
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    fail(`Invalid --${label}: ${raw}`);
+  }
+  return parsed;
+}
 
-    if (args.help) {
-      console.log(usage);
-      return;
-    }
+type ArgMap = Record<string, unknown>;
 
-    const prompt: string | undefined = deps.getSingleString(args, "prompt");
-    if (!prompt) deps.failWithUsage("Missing required --prompt.", usage);
+function parseArkArgs(
+  argv: string[],
+  mode: CliMode,
+  usage: string,
+  deps: Pick<
+    ArkDeps,
+    | "getSingleString"
+    | "toStringList"
+    | "fail"
+    | "failWithUsage"
+  >,
+) {
+  const stringArgs = [
+    "api-key",
+    "prompt",
+    "model",
+    "image-url",
+    "video-url",
+    "audio-url",
+    "ratio",
+    "resolution",
+    "duration",
+    "wait-timeout-seconds",
+    "poll-interval-ms",
+    "output",
+    "service-tier",
+    "callback-url",
+    "seed",
+  ];
+  const booleanArgs = [
+    "help",
+    "generate-audio",
+    "no-audio",
+    "watermark",
+    "no-watermark",
+    "return-last-frame",
+    "camera-fixed",
+    "wait",
+    "no-wait",
+    "json",
+  ];
 
-    const imageUrls = deps.toStringList(args["image-url"]);
-    const videoUrls = deps.toStringList(args["video-url"]);
-    const audioUrls = deps.toStringList(args["audio-url"]);
+  const args = minimist(argv, {
+    string: stringArgs,
+    boolean: booleanArgs,
+    default: { wait: true, "generate-audio": true },
+    alias: { p: "prompt", o: "output" },
+  });
 
-    if (imageUrls.length > 9)
-      deps.fail("At most 9 image URLs are supported.");
-    if (videoUrls.length > 3)
-      deps.fail("At most 3 video URLs are supported.");
-    if (audioUrls.length > 3)
-      deps.fail("At most 3 audio URLs are supported.");
+  const prompt = deps.getSingleString(args, "prompt");
+  if (!prompt) deps.failWithUsage("Missing required --prompt.", usage);
 
-    const apiKey = resolveApiKey({
-      apiKeyFromArg: deps.getSingleString(args, "api-key"),
-      envKey: "ARK_API_KEY",
-      fail: deps.fail,
-    });
+  const imageUrls = deps.toStringList(args["image-url"]);
+  const videoUrls = deps.toStringList(args["video-url"]);
+  const audioUrls = deps.toStringList(args["audio-url"]);
 
-    const model = deps.getSingleString(args, "model") || ARK_DEFAULT_MODEL;
-    const ratio = deps.getSingleString(args, "ratio") || "16:9";
-    const durationRaw = deps.getSingleString(args, "duration") || "11";
-    const duration = Number(durationRaw);
-    if (
-      !Number.isFinite(duration) ||
-      duration <= 0 ||
-      !Number.isInteger(duration)
-    ) {
-      deps.fail(
-        `Invalid --duration: ${durationRaw}. Use a positive integer (seconds).`,
+  if (imageUrls.length > 9) deps.fail("At most 9 image URLs are supported.");
+  if (videoUrls.length > 3) deps.fail("At most 3 video URLs are supported.");
+  if (audioUrls.length > 3) deps.fail("At most 3 audio URLs are supported.");
+
+  // mode 特定校验
+  if (mode === "edit" && videoUrls.length < 1) {
+    deps.fail("Video edit mode requires at least 1 --video-url.");
+  }
+  if (mode === "extend" && (videoUrls.length < 1 || videoUrls.length > 3)) {
+    deps.fail("Video extend mode requires 1~3 --video-url(s).");
+  }
+
+  return {
+    args,
+    prompt,
+    imageUrls,
+    videoUrls,
+    audioUrls,
+    model: deps.getSingleString(args, "model") || ARK_DEFAULT_MODEL,
+    ratio: deps.getSingleString(args, "ratio") || "16:9",
+    resolution: deps.getSingleString(args, "resolution") || "720p",
+    generateAudio: args["generate-audio"] !== false,
+    watermark: args.watermark === true,
+    returnLastFrame: args["return-last-frame"] === true,
+    cameraFixed: args["camera-fixed"] === true,
+    serviceTier: deps.getSingleString(args, "service-tier"),
+    callbackUrl: deps.getSingleString(args, "callback-url"),
+    seed: parsePositiveNumber(
+      deps.getSingleString(args, "seed"),
+      "seed",
+      deps.fail,
+    ),
+    wait: args.wait !== false,
+    isJson: Boolean(args.json),
+    outputPath: deps.getSingleString(args, "output"),
+    waitTimeoutSeconds: parsePositiveNumber(
+      deps.getSingleString(args, "wait-timeout-seconds"),
+      "wait-timeout-seconds",
+      deps.fail,
+    ),
+    pollIntervalMs: parsePositiveNumber(
+      deps.getSingleString(args, "poll-interval-ms"),
+      "poll-interval-ms",
+      deps.fail,
+    ),
+    duration: (() => {
+      const raw = deps.getSingleString(args, "duration") || "5";
+      const parsed = Number(raw);
+      if (
+        !Number.isFinite(parsed) ||
+        parsed <= 0 ||
+        !Number.isInteger(parsed)
+      ) {
+        deps.fail(`Invalid --duration: ${raw}. Use a positive integer.`);
+      }
+      return parsed;
+    })(),
+  };
+}
+
+async function handleResult(
+  result: string | { taskId: string },
+  prompt: string,
+  mode: CliMode,
+  isJson: boolean,
+  outputPath: string | undefined,
+  deps: Pick<ArkDeps, "fail" | "printCommandJson" | "printDownloadSummary">,
+): Promise<void> {
+  if (typeof result !== "string") {
+    if (isJson)
+      deps.printCommandJson(`ark.${mode}`, result, { wait: false });
+    else console.log(`Task submitted: ${result.taskId}`);
+    return;
+  }
+
+  const videoUrl = result;
+
+  if (outputPath || !isJson) {
+    const buffer = await downloadBinary(videoUrl, deps.fail);
+    const ext = "mp4";
+    const { writeFile, mkdir } = await import("node:fs/promises");
+    const path = await import("node:path");
+
+    const filePath =
+      outputPath ||
+      path.join(
+        "./pic/cli-ark-generate",
+        `ark-${mode}-${new Date().toISOString().replace(/[-:.TZ]/g, "")}.${ext}`,
       );
+
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, buffer);
+
+    if (isJson) {
+      deps.printCommandJson(
+        `ark.${mode}`,
+        { data: [{ url: videoUrl }], files: [filePath] },
+        { wait: true },
+      );
+    } else {
+      deps.printDownloadSummary("video", [filePath]);
     }
-    const generateAudio = args["generate-audio"] !== false;
-    const watermark = args.watermark === true;
-    const wait = args.wait !== false;
-    const isJson = Boolean(args.json);
-    const outputPath = deps.getSingleString(args, "output");
+  } else {
+    deps.printCommandJson(
+      `ark.${mode}`,
+      { data: [{ url: videoUrl }] },
+      { wait: true },
+    );
+  }
+}
+
+export function createArkCommandHandlers(deps: ArkDeps) {
+  function printHelpOrParse(argv: string[], mode: CliMode, usage: string) {
+    const hasHelp = argv.includes("--help") || argv.includes("-h");
+    if (hasHelp) {
+      console.log(usage);
+      return null;
+    }
+    return parseArkArgs(argv, mode, usage, deps);
+  }
+
+  const handleArkGenerate = async (argv: string[]) => {
+    const usage = deps.usageArkGenerate();
+    const p = printHelpOrParse(argv, "generate", usage);
+    if (!p) return;
+
+    const apiKey = resolveApiKey(p.args["api-key"] ?? undefined, deps.fail);
 
     const result = await generateArkVideo(apiKey, {
-      prompt,
-      model,
-      imageUrls,
-      videoUrls,
-      audioUrls,
-      generateAudio,
-      ratio,
-      duration,
-      watermark,
-      wait,
-      waitTimeoutSeconds: (() => {
-        const raw = deps.getSingleString(args, "wait-timeout-seconds");
-        if (!raw) return undefined;
-        const parsed = Number(raw);
-        if (!Number.isFinite(parsed) || parsed <= 0) {
-          deps.fail(`Invalid --wait-timeout-seconds: ${raw}`);
-        }
-        return parsed;
-      })(),
-      pollIntervalMs: (() => {
-        const raw = deps.getSingleString(args, "poll-interval-ms");
-        if (!raw) return undefined;
-        const parsed = Number(raw);
-        if (!Number.isFinite(parsed) || parsed <= 0) {
-          deps.fail(`Invalid --poll-interval-ms: ${raw}`);
-        }
-        return parsed;
-      })(),
+      prompt: p.prompt,
+      model: p.model,
+      imageUrls: p.imageUrls,
+      videoUrls: p.videoUrls,
+      audioUrls: p.audioUrls,
+      generateAudio: p.generateAudio,
+      ratio: p.ratio,
+      duration: p.duration,
+      resolution: p.resolution,
+      watermark: p.watermark,
+      returnLastFrame: p.returnLastFrame,
+      seed: p.seed,
+      cameraFixed: p.cameraFixed,
+      serviceTier: p.serviceTier,
+      callbackUrl: p.callbackUrl,
+      wait: p.wait,
+      waitTimeoutSeconds: p.waitTimeoutSeconds,
+      pollIntervalMs: p.pollIntervalMs,
     });
 
-    if (typeof result !== "string") {
-      // 异步模式
-      if (isJson)
-        deps.printCommandJson("ark.generate", result, { wait });
-      else
-        console.log(`Task submitted: ${result.taskId}`);
-      return;
-    }
+    await handleResult(result, p.prompt, "generate", p.isJson, p.outputPath, deps);
+  };
 
-    const videoUrl: string = result;
+  const handleArkEdit = async (argv: string[]) => {
+    const usage = deps.usageArkEdit();
+    const p = printHelpOrParse(argv, "edit", usage);
+    if (!p) return;
 
-    if (outputPath || !isJson) {
-      const buffer = await downloadBinary(videoUrl, deps);
-      const ext = "mp4";
-      const { writeFile, mkdir } = await import("node:fs/promises");
-      const path = await import("node:path");
+    const apiKey = resolveApiKey(p.args["api-key"] ?? undefined, deps.fail);
 
-      const filePath = outputPath
-        ? outputPath
-        : (() => {
-            const dir = path.resolve("./pic/cli-ark-generate");
-            const timestamp = new Date()
-              .toISOString()
-              .replace(/[-:.TZ]/g, "");
-            return path.join(dir, `ark-video-${timestamp}.${ext}`);
-          })();
+    const result = await editArkVideo(apiKey, {
+      prompt: p.prompt,
+      model: p.model,
+      videoUrls: p.videoUrls,
+      imageUrls: p.imageUrls,
+      audioUrls: p.audioUrls,
+      generateAudio: p.generateAudio,
+      ratio: p.ratio,
+      duration: p.duration,
+      resolution: p.resolution,
+      watermark: p.watermark,
+      returnLastFrame: p.returnLastFrame,
+      seed: p.seed,
+      cameraFixed: p.cameraFixed,
+      serviceTier: p.serviceTier,
+      callbackUrl: p.callbackUrl,
+      wait: p.wait,
+      waitTimeoutSeconds: p.waitTimeoutSeconds,
+      pollIntervalMs: p.pollIntervalMs,
+    });
 
-      await mkdir(path.dirname(filePath), { recursive: true });
-      await writeFile(filePath, buffer);
+    await handleResult(result, p.prompt, "edit", p.isJson, p.outputPath, deps);
+  };
 
-      if (isJson) {
-        deps.printCommandJson(
-          "ark.generate",
-          { data: [{ url: videoUrl }], files: [filePath] },
-          { wait },
-        );
-      } else {
-        deps.printDownloadSummary("video", [filePath]);
-      }
-    } else {
+  const handleArkExtend = async (argv: string[]) => {
+    const usage = deps.usageArkExtend();
+    const p = printHelpOrParse(argv, "extend", usage);
+    if (!p) return;
+
+    const apiKey = resolveApiKey(p.args["api-key"] ?? undefined, deps.fail);
+
+    const result = await extendArkVideo(apiKey, {
+      prompt: p.prompt,
+      model: p.model,
+      videoUrls: p.videoUrls,
+      imageUrls: p.imageUrls,
+      audioUrls: p.audioUrls,
+      generateAudio: p.generateAudio,
+      ratio: p.ratio,
+      duration: p.duration,
+      resolution: p.resolution,
+      watermark: p.watermark,
+      returnLastFrame: p.returnLastFrame,
+      seed: p.seed,
+      cameraFixed: p.cameraFixed,
+      serviceTier: p.serviceTier,
+      callbackUrl: p.callbackUrl,
+      wait: p.wait,
+      waitTimeoutSeconds: p.waitTimeoutSeconds,
+      pollIntervalMs: p.pollIntervalMs,
+    });
+
+    await handleResult(result, p.prompt, "extend", p.isJson, p.outputPath, deps);
+  };
+
+  const handleArkImage = async (argv: string[]) => {
+    const usage = deps.usageArkImage();
+    const parsed = printHelpOrParse(argv, "image", usage);
+    if (!parsed) return;
+
+    const apiKey = resolveApiKey(parsed.args["api-key"] ?? undefined, deps.fail);
+
+    const result = await generateArkImage(apiKey, {
+      prompt: parsed.prompt,
+      model: parsed.model || ARK_DEFAULT_IMAGE_MODEL,
+      image: parsed.imageUrls.length > 0
+        ? (parsed.imageUrls.length === 1 ? parsed.imageUrls[0] : parsed.imageUrls)
+        : undefined,
+      size: parsed.args["size"] as string | undefined || "2K",
+      output_format: parsed.args["output-format"] as string | undefined || "png",
+      watermark: parsed.args.watermark as boolean | undefined,
+      sequential_image_generation: parsed.args["sequential-image-generation"] as string | undefined,
+      max_images: parsed.args["max-images"] as number | undefined,
+    });
+
+    if (parsed.isJson) {
       deps.printCommandJson(
-        "ark.generate",
-        { data: [{ url: videoUrl }] },
-        { wait },
+        "ark.image",
+        { data: result.map((url) => ({ url })) },
       );
+    } else {
+      console.log(`Generated ${result.length} image(s):`);
+      for (const url of result) {
+        console.log(`  ${url}`);
+      }
     }
   };
 
-  return { handleArkGenerate };
+  return { handleArkGenerate, handleArkEdit, handleArkExtend, handleArkImage };
 }
